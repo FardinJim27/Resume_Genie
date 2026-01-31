@@ -1,0 +1,221 @@
+import { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router';
+import { useApiStore } from '~/lib/api';
+import Swal from 'sweetalert2';
+
+const Auth = () => {
+  const { isLoading, error, isAuthenticated, login, register, resetPassword } = useApiStore();
+  const navigate = useNavigate();
+  const [isLoginMode, setIsLoginMode] = useState(true);
+
+  useEffect(() => {
+    if (isAuthenticated) {
+      const params = new URLSearchParams(window.location.search);
+      const next = params.get('next') || '/';
+      navigate(next);
+    }
+  }, [isAuthenticated]);
+
+  const handleForgotPassword = async () => {
+    const { value: email } = await Swal.fire({
+      title: 'Reset Password',
+      text: 'Enter your email address',
+      input: 'email',
+      inputPlaceholder: 'Enter your email',
+      showCancelButton: true,
+      confirmButtonColor: '#3085d6',
+      cancelButtonColor: '#6b7280',
+      confirmButtonText: 'Next',
+      inputValidator: (value) => {
+        if (!value) {
+          return 'Email is required!';
+        }
+        if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)) {
+          return 'Please enter a valid email!';
+        }
+      }
+    });
+
+    if (!email) return;
+
+    const { value: newPassword } = await Swal.fire({
+      title: 'Reset Password',
+      text: 'Enter your new password',
+      input: 'password',
+      inputPlaceholder: 'Enter new password (min 8 characters)',
+      showCancelButton: true,
+      confirmButtonColor: '#3085d6',
+      cancelButtonColor: '#6b7280',
+      confirmButtonText: 'Reset Password',
+      inputValidator: (value) => {
+        if (!value) {
+          return 'Password is required!';
+        }
+        if (value.length < 8) {
+          return 'Password must be at least 8 characters!';
+        }
+      }
+    });
+
+    if (!newPassword) return;
+
+    const success = await resetPassword(email, newPassword);
+    if (success) {
+      Swal.fire({
+        title: 'Password Reset!',
+        text: 'Your password has been reset successfully. You can now login with your new password.',
+        icon: 'success',
+        confirmButtonColor: '#3085d6'
+      });
+    } else if (error) {
+      Swal.fire({
+        title: 'Reset Failed!',
+        text: error,
+        icon: 'error',
+        confirmButtonColor: '#3085d6'
+      });
+    }
+  };
+
+  const handleLogin = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    const formData = new FormData(e.currentTarget);
+    const email = formData.get('email') as string;
+    const password = formData.get('password') as string;
+
+    const success = await login(email, password);
+    if (success) {
+      Swal.fire({
+        title: "Welcome Back!",
+        text: "Login successful",
+        icon: "success",
+        timer: 1500,
+        showConfirmButton: false
+      });
+    } else if (error) {
+      Swal.fire({
+        title: "Login Failed!",
+        text: error,
+        icon: "error",
+        confirmButtonColor: "#3085d6"
+      });
+    }
+  };
+
+  const handleRegister = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    const formData = new FormData(e.currentTarget);
+    const username = formData.get('username') as string;
+    const email = formData.get('email') as string;
+    const password = formData.get('password') as string;
+
+    const success = await register(username, email, password);
+    if (success) {
+      Swal.fire({
+        title: "Account Created!",
+        text: "Registration successful. Welcome!",
+        icon: "success",
+        timer: 1500,
+        showConfirmButton: false
+      });
+    } else if (error) {
+      Swal.fire({
+        title: "Registration Failed!",
+        text: error,
+        icon: "error",
+        confirmButtonColor: "#3085d6"
+      });
+    }
+  };
+
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-[url('/images/bg-main.svg')] bg-cover">
+      <div className="max-w-md w-full bg-white rounded-lg shadow-lg p-8">
+        <h1 className="text-3xl font-bold text-center mb-6">
+          {isLoginMode ? 'Login' : 'Register'}
+        </h1>
+
+        {error && (
+          <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
+            {error}
+          </div>
+        )}
+
+        <form onSubmit={isLoginMode ? handleLogin : handleRegister} className="space-y-4">
+          {!isLoginMode && (
+            <div>
+              <label htmlFor="username" className="block text-sm font-medium mb-2">
+                Username
+              </label>
+              <input
+                type="text"
+                id="username"
+                name="username"
+                required
+                className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+          )}
+
+          <div>
+            <label htmlFor="email" className="block text-sm font-medium mb-2">
+              Email
+            </label>
+            <input
+              type="email"
+              id="email"
+              name="email"
+              required
+              className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
+            />
+          </div>
+
+          <div>
+            <label htmlFor="password" className="block text-sm font-medium mb-2">
+              Password
+            </label>
+            <input
+              type="password"
+              id="password"
+              name="password"
+              required
+              minLength={8}
+              className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
+            />
+          </div>
+
+          <button
+            type="submit"
+            disabled={isLoading}
+            className="w-full bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700 disabled:opacity-50"
+          >
+            {isLoading ? 'Processing...' : isLoginMode ? 'Login' : 'Register'}
+          </button>
+
+          {isLoginMode && (
+            <button
+              type="button"
+              onClick={handleForgotPassword}
+              className="w-full text-blue-600 hover:underline text-sm mt-2"
+            >
+              Forgot Password?
+            </button>
+          )}
+        </form>
+
+        <div className="mt-4 text-center">
+          <button
+            onClick={() => setIsLoginMode(!isLoginMode)}
+            className="text-blue-600 hover:underline"
+          >
+            {isLoginMode
+              ? "Don't have an account? Register"
+              : 'Already have an account? Login'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default Auth;
