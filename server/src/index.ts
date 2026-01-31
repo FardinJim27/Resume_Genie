@@ -2,9 +2,9 @@ import express from "express";
 import cors from "cors";
 import fileUpload from "express-fileupload";
 import dotenv from "dotenv";
-import authRoutes from "./routes/auth";
-import resumeRoutes from "./routes/resumes";
-import adminRoutes from "./routes/admin";
+import authRoutes from "./routes/auth.js";
+import resumeRoutes from "./routes/resumes.js";
+import adminRoutes from "./routes/admin.js";
 
 dotenv.config();
 

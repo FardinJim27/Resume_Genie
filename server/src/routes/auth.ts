@@ -1,15 +1,15 @@
 import { Router, Request, Response } from "express";
-import { db } from "../db/index";
-import { users } from "../db/schema";
+import { db } from "../db/index.js";
+import { users } from "../db/schema.js";
 import {
   registerSchema,
   loginSchema,
   hashPassword,
   verifyPassword,
   generateToken,
-} from "../lib/auth";
+} from "../lib/auth.js";
 import { eq } from "drizzle-orm";
-import { AuthRequest, authMiddleware } from "../middleware/auth";
+import { AuthRequest, authMiddleware } from "../middleware/auth.js";
 
 const router = Router();
 

@@ -1,10 +1,10 @@
 import { Router, Request, Response } from "express";
 import fileUpload from "express-fileupload";
-import { AuthRequest, authMiddleware } from "../middleware/auth";
-import { db } from "../db/index";
-import { resumes } from "../db/schema";
-import { analyzeResume } from "../lib/ai";
-import { convertPdfToImage } from "../lib/pdf-to-image";
+import { AuthRequest, authMiddleware } from "../middleware/auth.js";
+import { db } from "../db/index.js";
+import { resumes } from "../db/schema.js";
+import { analyzeResume } from "../lib/ai.js";
+import { convertPdfToImage } from "../lib/pdf-to-image.js";
 import { eq, and, desc } from "drizzle-orm";
 import path from "path";
 import fs from "fs/promises";
