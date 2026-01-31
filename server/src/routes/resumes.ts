@@ -82,12 +82,10 @@ router.post(
         (err: any) => console.error("Analysis failed:", err),
       );
 
-      res
-        .status(201)
-        .json({
-          id: resume.id,
-          message: "Resume uploaded, analysis in progress",
-        });
+      res.status(201).json({
+        id: resume.id,
+        message: "Resume uploaded, analysis in progress",
+      });
     } catch (error) {
       console.error("Upload error:", error);
       res.status(500).json({ error: "Failed to upload resume" });

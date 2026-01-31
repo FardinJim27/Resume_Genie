@@ -138,6 +138,6 @@ _____________________________________________
 - [ ] Completed Successfully
 - [ ] Completed with Issues (document above)
 
-**Completion Date:** ****\_\_\_****
+**Completion Date:** \***\*\_\_\_\*\***
 
-**Migrated By:** ****\_\_\_****
+**Migrated By:** \***\*\_\_\_\*\***
