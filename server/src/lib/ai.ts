@@ -1,6 +1,6 @@
 import Groq from "groq-sdk";
-import { db } from "../db/index";
-import { resumes } from "../db/schema";
+import { db } from "../db/index.js";
+import { resumes } from "../db/schema.js";
 import { eq } from "drizzle-orm";
 import fs from "fs/promises";
 import { createRequire } from "module";
