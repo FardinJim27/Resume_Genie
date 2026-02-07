@@ -46,18 +46,18 @@ const Home = () => {
 
       <section className="main-section">
         <div className="page-heading">
-          <h1 className="text-5xl md:text-6xl">
+          <h1 className="text-3xl md:text-5xl lg:text-6xl px-4">
             Your Dashboard For
             <br />
             <span className="text-gradient">Applications</span> &{" "}
             <span className="font-bold text-black">Resume Insights</span>.
           </h1>
-          <p className="text-xl text-gray-600 mt-4">
+          <p className="text-base md:text-xl text-gray-600 mt-4 px-4">
             Review your submissions and access AI-powered feedback.
           </p>
         </div>
 
-        <div className="resumes-section mt-12">
+        <div className="resumes-section mt-8 md:mt-12 px-4">
           {resumes.length > 0 ? (
             resumes.map((resume) => (
               <ResumeCard
