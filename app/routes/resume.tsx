@@ -1,6 +1,7 @@
 import { Link, useNavigate, useParams } from "react-router";
 import { useEffect, useState } from "react";
 import { useApiStore } from "~/lib/api";
+import { convertPdfToImage } from "~/lib/pdf2img";
 import Summary from "~/components/Summary";
 import ATS from "~/components/ATS";
 import Details from "~/components/Details";
@@ -13,8 +14,8 @@ export const meta = () => [
 const Resume = () => {
   const { isAuthenticated, isLoading, getResume, getFileUrl } = useApiStore();
   const { id } = useParams();
-  const [imageUrl, setImageUrl] = useState("");
-  const [resumeUrl, setResumeUrl] = useState("");
+  const [previewUrl, setPreviewUrl] = useState("");
+  const [loadingImage, setLoadingImage] = useState(false);
   const [feedback, setFeedback] = useState<Feedback | null>(null);
   const [polling, setPolling] = useState(false);
   const navigate = useNavigate();
@@ -32,13 +33,49 @@ const Resume = () => {
       const resume = await getResume(id);
       if (!resume) return;
 
-      // Set file URLs
-      if (resume.resumePath) {
-        setResumeUrl(getFileUrl(resume.resumePath));
-      }
+      // Try server image first, fall back to client-side PDF rendering
+      if (resume.imagePath || resume.resumePath) {
+        setLoadingImage(true);
+        try {
+          let resolved = false;
 
-      if (resume.imagePath) {
-        setImageUrl(getFileUrl(resume.imagePath));
+          // 1. Try server-generated image
+          if (resume.imagePath) {
+            try {
+              const imgUrl = getFileUrl(resume.imagePath);
+              const res = await fetch(imgUrl);
+              if (res.ok) {
+                const blob = await res.blob();
+                if (blob.type.startsWith("image/") && blob.size > 1000) {
+                  setPreviewUrl(URL.createObjectURL(blob));
+                  resolved = true;
+                }
+              }
+            } catch (_) {
+              // fall through to PDF rendering
+            }
+          }
+
+          // 2. Fall back: render first page of PDF client-side
+          if (!resolved && resume.resumePath) {
+            const pdfUrl = getFileUrl(resume.resumePath);
+            const res = await fetch(pdfUrl);
+            if (res.ok) {
+              const blob = await res.blob();
+              const file = new File([blob], "resume.pdf", {
+                type: "application/pdf",
+              });
+              const result = await convertPdfToImage(file);
+              if (result.imageUrl) {
+                setPreviewUrl(result.imageUrl);
+              }
+            }
+          }
+        } catch (err) {
+          console.error("Failed to load resume preview:", err);
+        } finally {
+          setLoadingImage(false);
+        }
       }
 
       // Set feedback or start polling if not ready
@@ -79,41 +116,21 @@ const Resume = () => {
         </Link>
       </nav>
       <div className="flex flex-row w-full max-lg:flex-col-reverse">
-        <section className="feedback-section bg-[url('/images/bg-small.svg') bg-cover h-[100vh] sticky top-0 items-center justify-center">
-          {imageUrl && (
-            <div className="animate-in fade-in duration-1000 gradient-border max-sm:m-0 h-[90%] max-wxl:h-fit w-fit">
-              <a href={resumeUrl} target="_blank" rel="noopener noreferrer">
-                <img
-                  src={imageUrl}
-                  className="w-full h-full object-contain rounded-2xl"
-                  title="resume"
-                  alt="Resume preview"
-                  onError={(e) => {
-                    const img = e.currentTarget;
-                    if (resumeUrl && !img.dataset.retried) {
-                      img.dataset.retried = "true";
-                      import("~/lib/pdf2img").then(({ convertPdfToImage }) => {
-                        fetch(resumeUrl)
-                          .then((res) => res.blob())
-                          .then((blob) => {
-                            const file = new File([blob], "resume.pdf", {
-                              type: "application/pdf",
-                            });
-                            return convertPdfToImage(file);
-                          })
-                          .then((result) => {
-                            if (result.imageUrl) {
-                              img.src = result.imageUrl;
-                            }
-                          })
-                          .catch(console.error);
-                      });
-                    }
-                  }}
-                />
-              </a>
+        <section className="feedback-section bg-[url('/images/bg-small.svg')] bg-cover h-[100vh] sticky top-0 items-center justify-center">
+          {loadingImage ? (
+            <div className="flex items-center justify-center h-full">
+              <p className="text-gray-500 text-sm">Loading preview...</p>
             </div>
-          )}
+          ) : previewUrl ? (
+            <div className="animate-in fade-in duration-1000 gradient-border max-sm:m-0 h-[90%] max-wxl:h-fit w-fit">
+              <img
+                src={previewUrl}
+                className="w-full h-full object-contain rounded-2xl"
+                title="resume"
+                alt="Resume preview"
+              />
+            </div>
+          ) : null}
         </section>
         <section className="feedback-section">
           <h2 className="text-4xl !text-black font-bold">Resume Review</h2>
