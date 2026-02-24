@@ -52,32 +52,40 @@ router.post(
       const resumePath = path.join(UPLOAD_DIR, resumeFileName);
       await resumeFile.mv(resumePath);
 
-      // Generate image from PDF
-      const imageFileName = `${req.user.userId}_${timestamp}_image.png`;
-      const imagePath = path.join(UPLOAD_DIR, imageFileName);
-
-      // First try: use client-uploaded image if available
-      let imageGenerated = false;
-      if (req.files.image) {
-        try {
-          const imageFile = req.files.image as fileUpload.UploadedFile;
-          await imageFile.mv(imagePath);
-          imageGenerated = true;
-          console.log("[Upload] Using client-uploaded image");
-        } catch (error) {
-          console.error("[Upload] Failed to save client image:", error);
+      // Determine image storage: prefer client-sent base64 data URL (persists across restarts)
+      let imageStorageValue = "";
+      if (
+        req.body.imageData &&
+        typeof req.body.imageData === "string" &&
+        req.body.imageData.startsWith("data:")
+      ) {
+        // Store data URL directly in DB — no filesystem dependency
+        imageStorageValue = req.body.imageData;
+        console.log("[Upload] Storing base64 thumbnail in DB");
+      } else {
+        // Fallback: generate image server-side and save to file
+        const imageFileName = `${req.user.userId}_${timestamp}_image.png`;
+        const imagePath = path.join(UPLOAD_DIR, imageFileName);
+        let imageGenerated = false;
+        if (req.files.image) {
+          try {
+            const imageFile = req.files.image as fileUpload.UploadedFile;
+            await imageFile.mv(imagePath);
+            imageGenerated = true;
+            console.log("[Upload] Using client-uploaded image file");
+          } catch (error) {
+            console.error("[Upload] Failed to save client image:", error);
+          }
         }
-      }
-
-      // Fallback: generate image server-side
-      if (!imageGenerated) {
-        try {
-          await convertPdfToImage(resumePath, imagePath);
-          console.log("[Upload] PDF converted to image successfully");
-        } catch (error) {
-          console.error("[Upload] Failed to convert PDF to image:", error);
-          // Continue without image - not critical
+        if (!imageGenerated) {
+          try {
+            await convertPdfToImage(resumePath, imagePath);
+            console.log("[Upload] PDF converted to image successfully");
+          } catch (error) {
+            console.error("[Upload] Failed to convert PDF to image:", error);
+          }
         }
+        imageStorageValue = imageFileName;
       }
 
       // Create database record
@@ -89,7 +97,7 @@ router.post(
           jobTitle,
           jobDescription,
           resumePath: resumeFileName,
-          imagePath: imageFileName,
+          imagePath: imageStorageValue,
         })
         .returning();
 

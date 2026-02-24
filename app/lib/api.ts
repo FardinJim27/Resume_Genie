@@ -46,6 +46,7 @@ interface ApiStore {
     companyName: string,
     jobTitle: string,
     jobDescription: string,
+    imageDataUrl?: string,
   ) => Promise<string | null>;
   getResume: (id: string) => Promise<Resume | null>;
   getAllResumes: () => Promise<Resume[]>;
@@ -218,6 +219,7 @@ export const useApiStore = create<ApiStore>((set, get) => {
     companyName: string,
     jobTitle: string,
     jobDescription: string,
+    imageDataUrl?: string,
   ): Promise<string | null> => {
     const { token } = get();
     if (!token) {
@@ -230,7 +232,10 @@ export const useApiStore = create<ApiStore>((set, get) => {
     try {
       const formData = new FormData();
       formData.append("resume", file);
-      if (imageFile) {
+      if (imageDataUrl) {
+        // Preferred: send as base64 data URL to store directly in DB
+        formData.append("imageData", imageDataUrl);
+      } else if (imageFile) {
         formData.append("image", imageFile);
       }
       formData.append("companyName", companyName);
@@ -352,6 +357,9 @@ export const useApiStore = create<ApiStore>((set, get) => {
   };
 
   const getFileUrl = (filename: string): string => {
+    if (!filename) return "";
+    // If it's already a data URL (base64 stored in DB), return as-is
+    if (filename.startsWith("data:")) return filename;
     const { token } = get();
     return `${API_URL}/api/resumes/file/${filename}?token=${token}`;
   };

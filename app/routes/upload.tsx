@@ -3,7 +3,7 @@ import Navbar from "~/components/Navbar";
 import FileUploader from "~/components/FileUploader";
 import { useApiStore } from "~/lib/api";
 import { useNavigate } from "react-router";
-import { convertPdfToImage } from "~/lib/pdf2img";
+import { convertPdfToImage, convertPdfToThumbnail } from "~/lib/pdf2img";
 import Swal from "sweetalert2";
 
 const Upload = () => {
@@ -37,9 +37,9 @@ const Upload = () => {
       console.error("Image conversion error:", imageResult.error);
     }
 
-    if (!imageResult.file) {
-      console.warn("No image file generated, will upload without preview");
-    }
+    // Generate compact JPEG thumbnail (base64 data URL) for persistent DB storage
+    setStatusText("Generating preview...");
+    const thumbnailDataUrl = await convertPdfToThumbnail(file);
 
     setStatusText("Uploading resume...");
     const resumeId = await uploadResume(
@@ -48,6 +48,7 @@ const Upload = () => {
       companyName,
       jobTitle,
       jobDescription,
+      thumbnailDataUrl || undefined,
     );
 
     if (!resumeId) {

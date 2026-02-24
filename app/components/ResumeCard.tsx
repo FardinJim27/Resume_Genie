@@ -26,26 +26,24 @@ const ResumeCard = ({
 }: ResumeCardProps) => {
   const { getFileUrl } = useApiStore();
   const navigate = useNavigate();
+  // getFileUrl handles both data URLs (new records) and filename URLs (legacy)
   const imageUrl = imagePath ? getFileUrl(imagePath) : "";
   const pdfUrl = resumePath ? getFileUrl(resumePath) : "";
   const [previewUrl, setPreviewUrl] = useState(imageUrl);
   const [showMenu, setShowMenu] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
 
-  // If imageUrl changes (e.g. after auth), sync it
   useEffect(() => {
     setPreviewUrl(imageUrl || "");
   }, [imageUrl]);
 
   const handleImageError = () => {
-    if (!pdfUrl) return;
-    // Server image missing/broken — render first page of PDF client-side
+    // For old records where server files are gone, try PDF fallback
+    if (!pdfUrl || pdfUrl.startsWith("data:")) return;
     fetch(pdfUrl)
       .then((res) => res.blob())
       .then((blob) => {
-        const file = new File([blob], "resume.pdf", {
-          type: "application/pdf",
-        });
+        const file = new File([blob], "resume.pdf", { type: "application/pdf" });
         return convertPdfToImage(file);
       })
       .then((result) => {

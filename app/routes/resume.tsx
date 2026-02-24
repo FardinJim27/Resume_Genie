@@ -88,9 +88,10 @@ const Resume = () => {
 
   const handleImageError = () => {
     const pdfPath = resumePathRef.current;
-    if (!pdfPath) return;
-    // Server image broken — render first page of PDF client-side
+    // Don't try fallback if no path or if current URL is already a data URL
+    if (!pdfPath || previewUrl.startsWith("data:")) return;
     const pdfUrl = getFileUrl(pdfPath);
+    if (pdfUrl.startsWith("data:")) return;
     setLoadingImage(true);
     fetch(pdfUrl)
       .then((res) => res.blob())

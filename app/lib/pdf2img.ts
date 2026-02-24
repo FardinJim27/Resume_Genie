@@ -83,3 +83,25 @@ export async function convertPdfToImage(
     };
   }
 }
+
+/**
+ * Renders the first page of a PDF as a compact JPEG data URL (scale 1.5).
+ * Used to store the preview image persistently in the database.
+ */
+export async function convertPdfToThumbnail(file: File): Promise<string> {
+  try {
+    const lib = await loadPdfJs();
+    const arrayBuffer = await file.arrayBuffer();
+    const pdf = await lib.getDocument({ data: arrayBuffer }).promise;
+    const page = await pdf.getPage(1);
+    const viewport = page.getViewport({ scale: 1.5 });
+    const canvas = document.createElement("canvas");
+    const context = canvas.getContext("2d");
+    canvas.width = viewport.width;
+    canvas.height = viewport.height;
+    await page.render({ canvasContext: context!, viewport }).promise;
+    return canvas.toDataURL("image/jpeg", 0.85);
+  } catch {
+    return "";
+  }
+}
