@@ -26,47 +26,33 @@ const ResumeCard = ({
 }: ResumeCardProps) => {
   const { getFileUrl } = useApiStore();
   const navigate = useNavigate();
-  const [previewUrl, setPreviewUrl] = useState("");
+  const imageUrl = imagePath ? getFileUrl(imagePath) : "";
+  const pdfUrl = resumePath ? getFileUrl(resumePath) : "";
+  const [previewUrl, setPreviewUrl] = useState(imageUrl);
   const [showMenu, setShowMenu] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
 
-  // Load preview: validate server image, fall back to client-side PDF rendering
+  // If imageUrl changes (e.g. after auth), sync it
   useEffect(() => {
-    const loadPreview = async () => {
-      let resolved = false;
+    setPreviewUrl(imageUrl || "");
+  }, [imageUrl]);
 
-      if (imagePath) {
-        try {
-          const imgUrl = getFileUrl(imagePath);
-          const res = await fetch(imgUrl);
-          if (res.ok) {
-            const blob = await res.blob();
-            if (blob.type.startsWith("image/") && blob.size > 1000) {
-              setPreviewUrl(URL.createObjectURL(blob));
-              resolved = true;
-            }
-          }
-        } catch (_) {}
-      }
-
-      if (!resolved && resumePath) {
-        try {
-          const pdfUrl = getFileUrl(resumePath);
-          const res = await fetch(pdfUrl);
-          if (res.ok) {
-            const blob = await res.blob();
-            const file = new File([blob], "resume.pdf", { type: "application/pdf" });
-            const result = await convertPdfToImage(file);
-            if (result.imageUrl) {
-              setPreviewUrl(result.imageUrl);
-            }
-          }
-        } catch (_) {}
-      }
-    };
-
-    loadPreview();
-  }, [imagePath, resumePath]);
+  const handleImageError = () => {
+    if (!pdfUrl) return;
+    // Server image missing/broken — render first page of PDF client-side
+    fetch(pdfUrl)
+      .then((res) => res.blob())
+      .then((blob) => {
+        const file = new File([blob], "resume.pdf", {
+          type: "application/pdf",
+        });
+        return convertPdfToImage(file);
+      })
+      .then((result) => {
+        if (result.imageUrl) setPreviewUrl(result.imageUrl);
+      })
+      .catch(() => setPreviewUrl(""));
+  };
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -217,6 +203,7 @@ const ResumeCard = ({
                 src={previewUrl}
                 alt="resume preview"
                 className="w-full h-full object-contain"
+                onError={handleImageError}
               />
             </div>
           </div>

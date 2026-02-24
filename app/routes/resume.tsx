@@ -1,5 +1,5 @@
 import { Link, useNavigate, useParams } from "react-router";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useApiStore } from "~/lib/api";
 import { convertPdfToImage } from "~/lib/pdf2img";
 import Summary from "~/components/Summary";
@@ -18,6 +18,7 @@ const Resume = () => {
   const [loadingImage, setLoadingImage] = useState(false);
   const [feedback, setFeedback] = useState<Feedback | null>(null);
   const [polling, setPolling] = useState(false);
+  const resumePathRef = useRef("");
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -33,46 +34,26 @@ const Resume = () => {
       const resume = await getResume(id);
       if (!resume) return;
 
-      // Try server image first, fall back to client-side PDF rendering
-      if (resume.imagePath || resume.resumePath) {
+      // Set image URL directly; onError on the <img> handles broken images
+      if (resume.imagePath) {
+        resumePathRef.current = resume.resumePath || "";
+        setPreviewUrl(getFileUrl(resume.imagePath));
+      } else if (resume.resumePath) {
+        // No image stored — render PDF first page immediately
         setLoadingImage(true);
         try {
-          let resolved = false;
-
-          // 1. Try server-generated image
-          if (resume.imagePath) {
-            try {
-              const imgUrl = getFileUrl(resume.imagePath);
-              const res = await fetch(imgUrl);
-              if (res.ok) {
-                const blob = await res.blob();
-                if (blob.type.startsWith("image/") && blob.size > 1000) {
-                  setPreviewUrl(URL.createObjectURL(blob));
-                  resolved = true;
-                }
-              }
-            } catch (_) {
-              // fall through to PDF rendering
-            }
-          }
-
-          // 2. Fall back: render first page of PDF client-side
-          if (!resolved && resume.resumePath) {
-            const pdfUrl = getFileUrl(resume.resumePath);
-            const res = await fetch(pdfUrl);
-            if (res.ok) {
-              const blob = await res.blob();
-              const file = new File([blob], "resume.pdf", {
-                type: "application/pdf",
-              });
-              const result = await convertPdfToImage(file);
-              if (result.imageUrl) {
-                setPreviewUrl(result.imageUrl);
-              }
-            }
+          const pdfUrl = getFileUrl(resume.resumePath);
+          const res = await fetch(pdfUrl);
+          if (res.ok) {
+            const blob = await res.blob();
+            const file = new File([blob], "resume.pdf", {
+              type: "application/pdf",
+            });
+            const result = await convertPdfToImage(file);
+            if (result.imageUrl) setPreviewUrl(result.imageUrl);
           }
         } catch (err) {
-          console.error("Failed to load resume preview:", err);
+          console.error("Failed to render PDF preview:", err);
         } finally {
           setLoadingImage(false);
         }
@@ -105,6 +86,27 @@ const Resume = () => {
     return () => clearInterval(interval);
   }, [polling, id]);
 
+  const handleImageError = () => {
+    const pdfPath = resumePathRef.current;
+    if (!pdfPath) return;
+    // Server image broken — render first page of PDF client-side
+    const pdfUrl = getFileUrl(pdfPath);
+    setLoadingImage(true);
+    fetch(pdfUrl)
+      .then((res) => res.blob())
+      .then((blob) => {
+        const file = new File([blob], "resume.pdf", {
+          type: "application/pdf",
+        });
+        return convertPdfToImage(file);
+      })
+      .then((result) => {
+        if (result.imageUrl) setPreviewUrl(result.imageUrl);
+      })
+      .catch(console.error)
+      .finally(() => setLoadingImage(false));
+  };
+
   return (
     <main className="!pt-0">
       <nav className="resume-nav">
@@ -128,6 +130,7 @@ const Resume = () => {
                 className="w-full h-full object-contain rounded-2xl"
                 title="resume"
                 alt="Resume preview"
+                onError={handleImageError}
               />
             </div>
           ) : null}
