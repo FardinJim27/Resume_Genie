@@ -6,9 +6,11 @@ async function importData() {
   try {
     console.log("Reading export file...");
     const data = JSON.parse(await fs.readFile("data-export.json", "utf-8"));
-    
-    console.log(`Found ${data.users.length} users and ${data.resumes.length} resumes to import`);
-    
+
+    console.log(
+      `Found ${data.users.length} users and ${data.resumes.length} resumes to import`,
+    );
+
     // Import users
     if (data.users.length > 0) {
       console.log("Importing users...");
@@ -23,7 +25,7 @@ async function importData() {
       }
       console.log(`✅ Imported ${data.users.length} users`);
     }
-    
+
     // Import resumes
     if (data.resumes.length > 0) {
       console.log("Importing resumes...");
@@ -38,7 +40,7 @@ async function importData() {
       }
       console.log(`✅ Imported ${data.resumes.length} resumes`);
     }
-    
+
     console.log("✅ Import completed successfully!");
     process.exit(0);
   } catch (error) {

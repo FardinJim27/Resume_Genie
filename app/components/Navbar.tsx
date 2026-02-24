@@ -33,7 +33,9 @@ const Navbar = () => {
   return (
     <nav className="navbar">
       <Link to="/">
-        <p className="text-lg md:text-2xl font-bold text-gradient">RESUME GENIE</p>
+        <p className="text-lg md:text-2xl font-bold text-gradient">
+          RESUME GENIE
+        </p>
       </Link>
       <div className="flex items-center gap-2 md:gap-4">
         {isAuthenticated && user && (
@@ -43,7 +45,10 @@ const Navbar = () => {
         )}
         {isAuthenticated ? (
           <>
-            <Link to="/upload" className="primary-button w-fit text-xs md:text-base px-3 md:px-4 py-2">
+            <Link
+              to="/upload"
+              className="primary-button w-fit text-xs md:text-base px-3 md:px-4 py-2"
+            >
               Upload Resume
             </Link>
             <button
@@ -54,7 +59,10 @@ const Navbar = () => {
             </button>
           </>
         ) : (
-          <Link to="/auth" className="primary-button w-fit text-xs md:text-base px-3 md:px-4 py-2">
+          <Link
+            to="/auth"
+            className="primary-button w-fit text-xs md:text-base px-3 md:px-4 py-2"
+          >
             Login
           </Link>
         )}

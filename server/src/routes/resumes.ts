@@ -56,12 +56,28 @@ router.post(
       const imageFileName = `${req.user.userId}_${timestamp}_image.png`;
       const imagePath = path.join(UPLOAD_DIR, imageFileName);
 
-      try {
-        await convertPdfToImage(resumePath, imagePath);
-        console.log("[Upload] PDF converted to image successfully");
-      } catch (error) {
-        console.error("[Upload] Failed to convert PDF to image:", error);
-        // Continue without image - not critical
+      // First try: use client-uploaded image if available
+      let imageGenerated = false;
+      if (req.files.image) {
+        try {
+          const imageFile = req.files.image as fileUpload.UploadedFile;
+          await imageFile.mv(imagePath);
+          imageGenerated = true;
+          console.log("[Upload] Using client-uploaded image");
+        } catch (error) {
+          console.error("[Upload] Failed to save client image:", error);
+        }
+      }
+
+      // Fallback: generate image server-side
+      if (!imageGenerated) {
+        try {
+          await convertPdfToImage(resumePath, imagePath);
+          console.log("[Upload] PDF converted to image successfully");
+        } catch (error) {
+          console.error("[Upload] Failed to convert PDF to image:", error);
+          // Continue without image - not critical
+        }
       }
 
       // Create database record

@@ -88,6 +88,28 @@ const Resume = () => {
                   className="w-full h-full object-contain rounded-2xl"
                   title="resume"
                   alt="Resume preview"
+                  onError={(e) => {
+                    const img = e.currentTarget;
+                    if (resumeUrl && !img.dataset.retried) {
+                      img.dataset.retried = "true";
+                      import("~/lib/pdf2img").then(({ convertPdfToImage }) => {
+                        fetch(resumeUrl)
+                          .then((res) => res.blob())
+                          .then((blob) => {
+                            const file = new File([blob], "resume.pdf", {
+                              type: "application/pdf",
+                            });
+                            return convertPdfToImage(file);
+                          })
+                          .then((result) => {
+                            if (result.imageUrl) {
+                              img.src = result.imageUrl;
+                            }
+                          })
+                          .catch(console.error);
+                      });
+                    }
+                  }}
                 />
               </a>
             </div>

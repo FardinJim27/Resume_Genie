@@ -105,7 +105,9 @@ const Upload = () => {
               <img src="/images/resume-scan.gif" className="w-full max-w-md" />
             </>
           ) : (
-            <h2 className="px-4">Drop Your Resume for an ATS Score and Improvement Tips</h2>
+            <h2 className="px-4">
+              Drop Your Resume for an ATS Score and Improvement Tips
+            </h2>
           )}
           {!isProcessing && (
             <form
