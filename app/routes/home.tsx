@@ -66,6 +66,7 @@ const Home = () => {
                 companyName={resume.companyName}
                 jobTitle={resume.jobTitle}
                 imagePath={resume.imagePath}
+                resumePath={resume.resumePath}
                 score={resume.feedback?.overallScore || 0}
                 onDelete={handleDelete}
               />

@@ -2,6 +2,7 @@ import { Link, useNavigate } from "react-router";
 import { useState, useRef, useEffect } from "react";
 import ScoreCircle from "~/components/ScoreCircle";
 import { useApiStore } from "~/lib/api";
+import { convertPdfToImage } from "~/lib/pdf2img";
 import Swal from "sweetalert2";
 
 interface ResumeCardProps {
@@ -9,6 +10,7 @@ interface ResumeCardProps {
   companyName: string;
   jobTitle: string;
   imagePath: string;
+  resumePath: string;
   score: number;
   onDelete?: (id: string) => void;
 }
@@ -18,14 +20,53 @@ const ResumeCard = ({
   companyName,
   jobTitle,
   imagePath,
+  resumePath,
   score,
   onDelete,
 }: ResumeCardProps) => {
   const { getFileUrl } = useApiStore();
   const navigate = useNavigate();
-  const imageUrl = imagePath ? getFileUrl(imagePath) : "";
+  const [previewUrl, setPreviewUrl] = useState("");
   const [showMenu, setShowMenu] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
+
+  // Load preview: validate server image, fall back to client-side PDF rendering
+  useEffect(() => {
+    const loadPreview = async () => {
+      let resolved = false;
+
+      if (imagePath) {
+        try {
+          const imgUrl = getFileUrl(imagePath);
+          const res = await fetch(imgUrl);
+          if (res.ok) {
+            const blob = await res.blob();
+            if (blob.type.startsWith("image/") && blob.size > 1000) {
+              setPreviewUrl(URL.createObjectURL(blob));
+              resolved = true;
+            }
+          }
+        } catch (_) {}
+      }
+
+      if (!resolved && resumePath) {
+        try {
+          const pdfUrl = getFileUrl(resumePath);
+          const res = await fetch(pdfUrl);
+          if (res.ok) {
+            const blob = await res.blob();
+            const file = new File([blob], "resume.pdf", { type: "application/pdf" });
+            const result = await convertPdfToImage(file);
+            if (result.imageUrl) {
+              setPreviewUrl(result.imageUrl);
+            }
+          }
+        } catch (_) {}
+      }
+    };
+
+    loadPreview();
+  }, [imagePath, resumePath]);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -169,11 +210,11 @@ const ResumeCard = ({
             </div>
           </div>
         </div>
-        {imageUrl && (
+        {previewUrl && (
           <div className="gradient-border animate-in fade-in duration-1000 flex-1">
             <div className="w-full h-full bg-white rounded-xl overflow-hidden">
               <img
-                src={imageUrl}
+                src={previewUrl}
                 alt="resume preview"
                 className="w-full h-full object-contain"
               />
