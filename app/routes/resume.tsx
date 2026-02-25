@@ -16,6 +16,7 @@ const Resume = () => {
   const { id } = useParams();
   const [previewUrl, setPreviewUrl] = useState("");
   const [loadingImage, setLoadingImage] = useState(false);
+  const [previewError, setPreviewError] = useState(false);
   const [feedback, setFeedback] = useState<Feedback | null>(null);
   const [polling, setPolling] = useState(false);
   const resumePathRef = useRef("");
@@ -88,13 +89,21 @@ const Resume = () => {
 
   const handleImageError = () => {
     const pdfPath = resumePathRef.current;
-    // Don't try fallback if no path or if current URL is already a data URL
-    if (!pdfPath || previewUrl.startsWith("data:")) return;
+    if (!pdfPath || previewUrl.startsWith("data:")) {
+      setPreviewError(true);
+      return;
+    }
     const pdfUrl = getFileUrl(pdfPath);
-    if (pdfUrl.startsWith("data:")) return;
+    if (pdfUrl.startsWith("data:")) {
+      setPreviewError(true);
+      return;
+    }
     setLoadingImage(true);
     fetch(pdfUrl)
-      .then((res) => res.blob())
+      .then((res) => {
+        if (!res.ok) throw new Error("not found");
+        return res.blob();
+      })
       .then((blob) => {
         const file = new File([blob], "resume.pdf", {
           type: "application/pdf",
@@ -103,8 +112,9 @@ const Resume = () => {
       })
       .then((result) => {
         if (result.imageUrl) setPreviewUrl(result.imageUrl);
+        else setPreviewError(true);
       })
-      .catch(console.error)
+      .catch(() => setPreviewError(true))
       .finally(() => setLoadingImage(false));
   };
 
@@ -123,6 +133,26 @@ const Resume = () => {
           {loadingImage ? (
             <div className="flex items-center justify-center h-full">
               <p className="text-gray-500 text-sm">Loading preview...</p>
+            </div>
+          ) : previewError ? (
+            <div className="flex flex-col items-center justify-center h-full gap-3 opacity-60">
+              <svg
+                className="w-16 h-16 text-gray-400"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={1.5}
+                  d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+                />
+              </svg>
+              <p className="text-gray-500 text-sm font-medium">Preview unavailable</p>
+              <p className="text-gray-400 text-xs text-center px-8">
+                Re-upload this resume to restore the preview
+              </p>
             </div>
           ) : previewUrl ? (
             <div className="animate-in fade-in duration-1000 gradient-border max-sm:m-0 h-[90%] max-wxl:h-fit w-fit">

@@ -30,26 +30,35 @@ const ResumeCard = ({
   const imageUrl = imagePath ? getFileUrl(imagePath) : "";
   const pdfUrl = resumePath ? getFileUrl(resumePath) : "";
   const [previewUrl, setPreviewUrl] = useState(imageUrl);
+  const [previewError, setPreviewError] = useState(false);
   const [showMenu, setShowMenu] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     setPreviewUrl(imageUrl || "");
+    setPreviewError(false);
   }, [imageUrl]);
 
   const handleImageError = () => {
     // For old records where server files are gone, try PDF fallback
-    if (!pdfUrl || pdfUrl.startsWith("data:")) return;
+    if (!pdfUrl || pdfUrl.startsWith("data:")) {
+      setPreviewError(true);
+      return;
+    }
     fetch(pdfUrl)
-      .then((res) => res.blob())
+      .then((res) => {
+        if (!res.ok) throw new Error("PDF not found");
+        return res.blob();
+      })
       .then((blob) => {
         const file = new File([blob], "resume.pdf", { type: "application/pdf" });
         return convertPdfToImage(file);
       })
       .then((result) => {
         if (result.imageUrl) setPreviewUrl(result.imageUrl);
+        else setPreviewError(true);
       })
-      .catch(() => setPreviewUrl(""));
+      .catch(() => setPreviewError(true));
   };
 
   useEffect(() => {
@@ -194,7 +203,28 @@ const ResumeCard = ({
             </div>
           </div>
         </div>
-        {previewUrl && (
+        {previewError ? (
+          <div className="gradient-border animate-in fade-in duration-500 flex-1">
+            <div className="w-full h-full bg-gray-50 rounded-xl overflow-hidden flex flex-col items-center justify-center gap-2 py-8">
+              <svg
+                className="w-10 h-10 text-gray-300"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={1.5}
+                  d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+                />
+              </svg>
+              <p className="text-gray-400 text-xs text-center px-4">
+                Preview unavailable
+              </p>
+            </div>
+          </div>
+        ) : previewUrl ? (
           <div className="gradient-border animate-in fade-in duration-1000 flex-1">
             <div className="w-full h-full bg-white rounded-xl overflow-hidden">
               <img
@@ -205,7 +235,7 @@ const ResumeCard = ({
               />
             </div>
           </div>
-        )}
+        ) : null}
       </Link>
     </div>
   );
