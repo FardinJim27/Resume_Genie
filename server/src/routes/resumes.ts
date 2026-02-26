@@ -80,12 +80,15 @@ router.post(
         if (!imageGenerated) {
           try {
             await convertPdfToImage(resumePath, imagePath);
+            imageGenerated = true;
             console.log("[Upload] PDF converted to image successfully");
           } catch (error) {
             console.error("[Upload] Failed to convert PDF to image:", error);
           }
         }
-        imageStorageValue = imageFileName;
+        if (imageGenerated) {
+          imageStorageValue = imageFileName;
+        }
       }
 
       // Create database record
@@ -253,7 +256,7 @@ router.delete(
       // Delete files
       try {
         await fs.unlink(path.join(UPLOAD_DIR, resume.resumePath));
-        if (resume.imagePath) {
+        if (resume.imagePath && !resume.imagePath.startsWith("data:")) {
           await fs.unlink(path.join(UPLOAD_DIR, resume.imagePath));
         }
       } catch (err) {

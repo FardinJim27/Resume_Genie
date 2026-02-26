@@ -52,12 +52,20 @@ const Resume = () => {
             });
             const result = await convertPdfToImage(file);
             if (result.imageUrl) setPreviewUrl(result.imageUrl);
+            else setPreviewError(true);
+          } else {
+            // PDF file no longer on server (ephemeral disk wiped)
+            setPreviewError(true);
           }
         } catch (err) {
           console.error("Failed to render PDF preview:", err);
+          setPreviewError(true);
         } finally {
           setLoadingImage(false);
         }
+      } else {
+        // No image and no PDF path stored at all
+        setPreviewError(true);
       }
 
       // Set feedback or start polling if not ready

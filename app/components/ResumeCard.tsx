@@ -37,7 +37,28 @@ const ResumeCard = ({
   useEffect(() => {
     setPreviewUrl(imageUrl || "");
     setPreviewError(false);
-  }, [imageUrl]);
+    // No stored image — try rendering from the PDF immediately
+    if (!imageUrl && pdfUrl && !pdfUrl.startsWith("data:")) {
+      fetch(pdfUrl)
+        .then((res) => {
+          if (!res.ok) throw new Error("PDF not found");
+          return res.blob();
+        })
+        .then((blob) => {
+          const file = new File([blob], "resume.pdf", {
+            type: "application/pdf",
+          });
+          return convertPdfToImage(file);
+        })
+        .then((result) => {
+          if (result.imageUrl) setPreviewUrl(result.imageUrl);
+          else setPreviewError(true);
+        })
+        .catch(() => setPreviewError(true));
+    } else if (!imageUrl && !pdfUrl) {
+      setPreviewError(true);
+    }
+  }, [imageUrl, pdfUrl]);
 
   const handleImageError = () => {
     // For old records where server files are gone, try PDF fallback
