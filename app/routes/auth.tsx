@@ -288,7 +288,7 @@ const Auth = () => {
 
         .auth-container {
           width: 100%;
-          max-width: 400px;
+          max-width: 500px;
         }
 
         .auth-heading {
@@ -411,7 +411,7 @@ const Auth = () => {
         }
 
         .auth-meta {
-          text-align: right;
+          text-align: center;
           margin-top: 0.25rem;
           margin-bottom: 0.25rem;
         }
