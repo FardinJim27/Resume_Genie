@@ -322,11 +322,15 @@ const Auth = () => {
           display: flex;
           flex-direction: column;
           gap: 0;
+          width: 100%;
+          box-sizing: border-box;
         }
 
         .auth-field {
           position: relative;
           margin-bottom: 1rem;
+          width: 100%;
+          box-sizing: border-box;
         }
 
         .auth-input {
