@@ -379,6 +379,7 @@ const Auth = () => {
         .auth-submit {
           display: block;
           width: 100%;
+          box-sizing: border-box;
           background: #fbceb5;
           border: 1px solid #fbceb5;
           height: 52px;
