@@ -411,8 +411,10 @@ const Auth = () => {
         }
 
         .auth-meta {
+          width: 100%;
+          box-sizing: border-box;
           text-align: center;
-          margin-top: 0.25rem;
+          margin-top: 0.5rem;
           margin-bottom: 0.25rem;
         }
 
