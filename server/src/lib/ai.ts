@@ -10,6 +10,11 @@ const pdfjsLib = require("pdfjs-dist/legacy/build/pdf.js");
 
 const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
 
+const GROQ_MODELS = {
+  primary: process.env.GROQ_PRIMARY_MODEL || "llama-3.3-70b-versatile",
+  fallback: process.env.GROQ_FALLBACK_MODEL || "meta-llama/llama-4-scout-17b-16e-instruct",
+};
+
 const AIResponseFormat = `
 interface Feedback {
   overallScore: number; //max 100
@@ -72,6 +77,30 @@ Return the analysis as a JSON object, without any other text and without the bac
 Do not include any other text or comments.`;
 };
 
+const callGroqAPI = async (
+  messages: any[],
+  modelOverride?: string,
+): Promise<any> => {
+  const model = modelOverride || GROQ_MODELS.primary;
+
+  try {
+    console.log(`[AI] Calling Groq API with model: ${model}`);
+    return await groq.chat.completions.create({
+      model,
+      messages,
+      temperature: 0.5,
+      max_tokens: 8000,
+    });
+  } catch (error: any) {
+    // If rate limit error and haven't tried fallback yet
+    if (error?.status === 429 && !modelOverride) {
+      console.log(`[AI] Rate limit on ${model}, retrying with fallback model...`);
+      return callGroqAPI(messages, GROQ_MODELS.fallback);
+    }
+    throw error;
+  }
+};
+
 export const analyzeResume = async (
   resumeId: string,
   resumePath: string,
@@ -98,24 +127,27 @@ export const analyzeResume = async (
     for (let pageNum = 1; pageNum <= pdfDocument.numPages; pageNum++) {
       const page = await pdfDocument.getPage(pageNum);
       const textContent = await page.getTextContent();
-      const pageText = textContent.items.map((item: any) => item.str).join(" ");
-      resumeText += pageText + "\n";
+      const pageText = textContent.items
+        .map((item: any) => item.str)
+        .join(" ")
+        .replace(/\s+/g, " ")
+        .trim();
+
+      if (pageText) {
+        resumeText += pageText + " ";
+      }
     }
+    resumeText = resumeText.trim();
 
     console.log(`[AI] Extracted ${resumeText.length} characters from PDF`);
+    console.log(`[AI] Estimated tokens: ~${Math.ceil(resumeText.length / 4)}`);
 
-    console.log(`[AI] Calling Groq API...`);
-    const completion = await groq.chat.completions.create({
-      model: "llama-3.1-8b-instant",
-      messages: [
-        {
-          role: "user",
-          content: `Here is a resume:\n\n${resumeText}\n\n${preparePrompt(jobTitle, jobDescription)}`,
-        },
-      ],
-      temperature: 0.5,
-      max_tokens: 8000,
-    });
+    const completion = await callGroqAPI([
+      {
+        role: "user",
+        content: `Here is a resume:\n\n${resumeText}\n\n${preparePrompt(jobTitle, jobDescription)}`,
+      },
+    ]);
 
     const text = completion.choices[0]?.message?.content || "";
 
