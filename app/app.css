@@ -2,6 +2,8 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 
+@custom-variant dark (&:where(.dark, .dark *));
+
 @theme {
   --font-sans:
     "Mona Sans", ui-sans-serif, system-ui, sans-serif, "Apple Color Emoji",
@@ -21,7 +23,14 @@
 
 html,
 body {
-  @apply bg-white;
+  @apply bg-white text-gray-900 transition-colors duration-200;
+}
+
+html.dark,
+body.dark,
+.dark body {
+  background-color: #0b0f19;
+  color: #f1f5f9;
 }
 
 main {
@@ -35,15 +44,31 @@ h2 {
   @apply text-xl md:text-2xl lg:text-3xl text-dark-200;
 }
 
+.dark h2 {
+  color: #cbd5e1;
+}
+
 label {
   @apply text-dark-200 text-sm md:text-base;
 }
+
+.dark label {
+  color: #cbd5e1;
+}
+
 input {
   @apply w-full p-3 md:p-4 inset-shadow rounded-2xl focus:outline-none bg-white text-sm md:text-base;
 }
 
 textarea {
   @apply w-full p-3 md:p-4 inset-shadow rounded-2xl focus:outline-none bg-white text-sm md:text-base;
+}
+
+.dark input,
+.dark textarea {
+  background-color: #0f172a;
+  color: #f8fafc;
+  border-color: #334155;
 }
 
 form {
@@ -64,9 +89,9 @@ form {
     @apply flex flex-row justify-between items-center p-4 border-b border-gray-200;
   }
   .resume-summary {
-    @apply flex flex-row items-center justify-center p-4 gap-4;
+    @apply flex flex-row items-center justify-center p-2 sm:p-4 gap-2 sm:gap-4;
     .category {
-      @apply flex flex-row gap-2 items-center bg-gray-50 rounded-2xl p-4 w-full justify-between;
+      @apply flex flex-row gap-2 items-center bg-gray-50 rounded-2xl p-3 sm:p-4 w-full justify-between;
     }
   }
   .back-button {
@@ -94,7 +119,7 @@ form {
   }
 
   .feedback-section {
-    @apply flex flex-col gap-6 md:gap-8 w-full lg:w-1/2 px-4 md:px-8 py-6;
+    @apply flex flex-col gap-6 md:gap-8 w-full lg:w-1/2 px-3 sm:px-6 md:px-8 py-4 sm:py-6;
   }
 
   .navbar {
@@ -117,7 +142,79 @@ form {
   }
 }
 
+/* Dark Mode Component Overrides */
+.dark .navbar {
+  background-color: rgba(15, 23, 42, 0.92);
+  border: 1px solid #1e293b;
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.5);
+  color: #f8fafc;
+}
+
+.dark .resume-card {
+  background-color: #0f172a;
+  border: 1px solid #1e293b;
+  color: #f8fafc;
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.4);
+}
+
+.dark .resume-card h2 {
+  color: #f8fafc !important;
+}
+
+.dark .resume-nav {
+  background-color: #0f172a;
+  border-bottom: 1px solid #1e293b;
+  color: #f8fafc;
+}
+
+.dark .back-button {
+  background-color: #1e293b;
+  border-color: #334155;
+  color: #f1f5f9;
+}
+
+.dark .back-button span {
+  color: #f1f5f9 !important;
+}
+
+.dark .uplader-drag-area {
+  background-color: #0f172a;
+  border-color: #334155;
+  color: #e2e8f0;
+}
+
+.dark .uploader-selected-file {
+  background-color: #1e293b;
+  color: #f8fafc;
+}
+
+.dark .category {
+  background-color: #1e293b;
+  color: #f8fafc;
+}
+
+.dark .resume-summary .category {
+  background-color: #1e293b;
+}
+
+.dark .bg-gradient {
+  background: linear-gradient(to bottom, #090d16 60%, #1a101f);
+}
+
+.dark .text-gradient {
+  background-image: linear-gradient(to right, #fda4af, #f8fafc, #a5b4fc);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.dark .footer {
+  background: linear-gradient(to bottom, #1e244d, #0f122e);
+  border-top: 1px solid #1e293b;
+}
+
 @utility bg-gradient {
+
   background: linear-gradient(to bottom, #f0f4ff 60%, #fa7185cc);
 }
 

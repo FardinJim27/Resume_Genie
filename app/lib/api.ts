@@ -1,6 +1,6 @@
 import { create } from "zustand";
 
-const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3001";
+const API_URL = import.meta.env.VITE_API_URL || "";
 
 interface User {
   id: string;
@@ -47,6 +47,7 @@ interface ApiStore {
     jobTitle: string,
     jobDescription: string,
     imageDataUrl?: string,
+    extractedText?: string,
   ) => Promise<string | null>;
   getResume: (id: string) => Promise<Resume | null>;
   getAllResumes: () => Promise<Resume[]>;
@@ -220,6 +221,7 @@ export const useApiStore = create<ApiStore>((set, get) => {
     jobTitle: string,
     jobDescription: string,
     imageDataUrl?: string,
+    extractedText?: string,
   ): Promise<string | null> => {
     const { token } = get();
     if (!token) {
@@ -241,6 +243,9 @@ export const useApiStore = create<ApiStore>((set, get) => {
       formData.append("companyName", companyName);
       formData.append("jobTitle", jobTitle);
       formData.append("jobDescription", jobDescription);
+      if (extractedText) {
+        formData.append("extractedText", extractedText);
+      }
 
       const response = await fetch(`${API_URL}/api/resumes/upload`, {
         method: "POST",

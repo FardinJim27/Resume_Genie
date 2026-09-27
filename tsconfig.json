@@ -23,5 +23,17 @@
     "resolveJsonModule": true,
     "skipLibCheck": true,
     "strict": true
-  }
+  },
+  "exclude": [
+    "node_modules",
+    "build",
+    ".react-router",
+    "server/drizzle.config.ts",
+    "server/src/list-users.ts",
+    "server/src/fix-stale-images.ts",
+    "server/src/export-data.ts",
+    "server/src/import-data.ts",
+    "server/src/regenerate-images.ts",
+    "server/src/make-admin.ts"
+  ]
 }

@@ -1,11 +1,12 @@
-import { Router, Response } from "express";
-import { AuthRequest, authMiddleware } from "../middleware/auth.js";
+import express from "express";
+import type { Response } from "express";
+import { authMiddleware, type AuthRequest } from "../middleware/auth.js";
 import { adminMiddleware } from "../middleware/admin.js";
 import { db } from "../db/index.js";
 import { users, resumes } from "../db/schema.js";
 import { eq } from "drizzle-orm";
 
-const router = Router();
+const router = express.Router();
 
 // All admin routes require both auth and admin middleware
 router.use(authMiddleware, adminMiddleware);

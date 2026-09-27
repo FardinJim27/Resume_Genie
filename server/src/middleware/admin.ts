@@ -1,5 +1,5 @@
-import { Response, NextFunction } from "express";
-import { AuthRequest } from "./auth.js";
+import type { Response, NextFunction } from "express";
+import type { AuthRequest } from "./auth.js";
 
 export const adminMiddleware = (
   req: AuthRequest,

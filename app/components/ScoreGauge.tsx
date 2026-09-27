@@ -33,7 +33,7 @@ const ScoreGauge = ({ score = 75 }: { score: number }) => {
           <path
             d="M10,50 A40,40 0 0,1 90,50"
             fill="none"
-            stroke="#e5e7eb"
+            className="stroke-gray-200 dark:stroke-slate-800"
             strokeWidth="10"
             strokeLinecap="round"
           />
@@ -52,7 +52,7 @@ const ScoreGauge = ({ score = 75 }: { score: number }) => {
         </svg>
 
         <div className="absolute inset-0 flex flex-col items-center justify-center pt-2">
-          <div className="text-xl font-semibold pt-4">{score}/100</div>
+          <div className="text-xl font-semibold pt-4 text-gray-900 dark:text-white">{score}/100</div>
         </div>
       </div>
     </div>

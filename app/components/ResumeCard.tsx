@@ -143,15 +143,15 @@ const ResumeCard = ({
         <div className="resume-card-header">
           <div className="flex flex-col gap-1 flex-1">
             {companyName && (
-              <h2 className="!text-2xl !text-black font-bold break-words">
+              <h2 className="!text-2xl !text-black dark:!text-white font-bold break-words">
                 {companyName}
               </h2>
             )}
             {jobTitle && (
-              <p className="text-base text-gray-500 font-normal">{jobTitle}</p>
+              <p className="text-base text-gray-500 dark:text-slate-400 font-normal">{jobTitle}</p>
             )}
             {!companyName && !jobTitle && (
-              <h2 className="!text-2xl !text-black font-bold">Resume</h2>
+              <h2 className="!text-2xl !text-black dark:!text-white font-bold">Resume</h2>
             )}
           </div>
           <div className="flex items-center gap-2">
@@ -159,11 +159,11 @@ const ResumeCard = ({
             <div className="relative" ref={menuRef}>
               <button
                 onClick={handleMenuClick}
-                className="p-2 hover:bg-gray-100 rounded-full transition-colors"
+                className="p-2 hover:bg-gray-100 dark:hover:bg-slate-800 rounded-full transition-colors cursor-pointer"
                 aria-label="More options"
               >
                 <svg
-                  className="w-5 h-5 text-gray-600"
+                  className="w-5 h-5 text-gray-600 dark:text-slate-300"
                   fill="currentColor"
                   viewBox="0 0 24 24"
                 >
@@ -174,10 +174,10 @@ const ResumeCard = ({
               </button>
 
               {showMenu && (
-                <div className="absolute right-0 top-full mt-1 w-40 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-50">
+                <div className="absolute right-0 top-full mt-1 w-40 bg-white dark:bg-slate-800 rounded-lg shadow-lg border border-gray-200 dark:border-slate-700 py-1 z-50">
                   <button
                     onClick={handleOpen}
-                    className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-100 flex items-center gap-2"
+                    className="w-full px-4 py-2 text-left text-sm text-gray-700 dark:text-slate-200 hover:bg-gray-100 dark:hover:bg-slate-700 flex items-center gap-2 cursor-pointer"
                   >
                     <svg
                       className="w-4 h-4"
@@ -202,7 +202,7 @@ const ResumeCard = ({
                   </button>
                   <button
                     onClick={handleDelete}
-                    className="w-full px-4 py-2 text-left text-sm text-red-600 hover:bg-red-50 flex items-center gap-2"
+                    className="w-full px-4 py-2 text-left text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/40 flex items-center gap-2 cursor-pointer"
                   >
                     <svg
                       className="w-4 h-4"

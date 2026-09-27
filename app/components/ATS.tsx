@@ -73,3 +73,4 @@ const ATS = ({
 };
 
 export default ATS;
+export { ATSScoreBreakdownChart } from "./ATSScoreBreakdownChart";

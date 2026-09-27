@@ -1,4 +1,5 @@
-import { Router, Request, Response } from "express";
+import express from "express";
+import type { Request, Response } from "express";
 import { db } from "../db/index.js";
 import { users } from "../db/schema.js";
 import {
@@ -9,9 +10,9 @@ import {
   generateToken,
 } from "../lib/auth.js";
 import { eq } from "drizzle-orm";
-import { AuthRequest, authMiddleware } from "../middleware/auth.js";
+import { authMiddleware, type AuthRequest } from "../middleware/auth.js";
 
-const router = Router();
+const router = express.Router();
 
 // Register
 router.post("/register", async (req: Request, res: Response): Promise<void> => {

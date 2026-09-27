@@ -1,6 +1,7 @@
-import { Router, Request, Response } from "express";
+import express from "express";
+import type { Request, Response } from "express";
 import fileUpload from "express-fileupload";
-import { AuthRequest, authMiddleware } from "../middleware/auth.js";
+import { authMiddleware, type AuthRequest } from "../middleware/auth.js";
 import { db } from "../db/index.js";
 import { resumes } from "../db/schema.js";
 import { analyzeResume } from "../lib/ai.js";
@@ -13,7 +14,7 @@ import { fileURLToPath } from "url";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-const router = Router();
+const router = express.Router();
 
 const UPLOAD_DIR = path.resolve(
   process.env.UPLOAD_DIR || path.join(__dirname, "../../uploads"),
@@ -39,16 +40,18 @@ router.post(
       }
 
       const resumeFile = req.files.resume as fileUpload.UploadedFile;
-      const { companyName, jobTitle, jobDescription } = req.body;
+      const { companyName, jobTitle, jobDescription, extractedText } = req.body;
 
       if (!companyName || !jobTitle || !jobDescription) {
         res.status(400).json({ error: "Missing required fields" });
         return;
       }
 
-      // Save PDF file
+      // Save file with appropriate extension (.docx or .pdf)
       const timestamp = Date.now();
-      const resumeFileName = `${req.user.userId}_${timestamp}_resume.pdf`;
+      const isDocx = resumeFile.name.toLowerCase().endsWith(".docx");
+      const ext = isDocx ? "docx" : "pdf";
+      const resumeFileName = `${req.user.userId}_${timestamp}_resume.${ext}`;
       const resumePath = path.join(UPLOAD_DIR, resumeFileName);
       await resumeFile.mv(resumePath);
 
@@ -77,7 +80,7 @@ router.post(
             console.error("[Upload] Failed to save client image:", error);
           }
         }
-        if (!imageGenerated) {
+        if (!imageGenerated && !isDocx) {
           try {
             await convertPdfToImage(resumePath, imagePath);
             imageGenerated = true;
@@ -104,10 +107,14 @@ router.post(
         })
         .returning();
 
-      // Analyze resume in background
-      analyzeResume(resume.id, resumePath, jobTitle, jobDescription).catch(
-        (err: any) => console.error("Analysis failed:", err),
-      );
+      // Analyze resume in background (with optional extractedText)
+      analyzeResume(
+        resume.id,
+        resumePath,
+        jobTitle,
+        jobDescription,
+        extractedText,
+      ).catch((err: any) => console.error("Analysis failed:", err));
 
       res.status(201).json({
         id: resume.id,

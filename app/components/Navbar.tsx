@@ -1,6 +1,7 @@
 import { Link, useNavigate } from "react-router";
 import { useApiStore } from "~/lib/api";
 import Swal from "sweetalert2";
+import ThemeToggle from "~/components/ThemeToggle";
 
 const Navbar = () => {
   const { isAuthenticated, user, logout } = useApiStore();
@@ -39,10 +40,11 @@ const Navbar = () => {
       </Link>
       <div className="flex items-center gap-2 md:gap-4">
         {isAuthenticated && user && (
-          <span className="hidden sm:inline text-xs md:text-sm text-gray-600">
+          <span className="hidden sm:inline text-xs md:text-sm text-gray-600 dark:text-slate-300">
             Welcome, {user.username}
           </span>
         )}
+        <ThemeToggle size="sm" />
         {isAuthenticated ? (
           <>
             <Link
@@ -53,7 +55,7 @@ const Navbar = () => {
             </Link>
             <button
               onClick={handleLogout}
-              className="px-3 md:px-6 py-2 md:py-2.5 bg-red-600 text-white rounded-full hover:bg-red-700 transition-colors duration-200 text-xs md:text-sm font-medium"
+              className="px-3 md:px-6 py-2 md:py-2.5 bg-red-600 text-white rounded-full hover:bg-red-700 transition-colors duration-200 text-xs md:text-sm font-medium cursor-pointer"
             >
               Logout
             </button>

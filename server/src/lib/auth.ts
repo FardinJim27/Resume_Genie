@@ -1,5 +1,6 @@
-import jwt, { SignOptions } from "jsonwebtoken";
-import bcrypt from "bcrypt";
+import jwt from "jsonwebtoken";
+import type { SignOptions } from "jsonwebtoken";
+import bcrypt from "bcryptjs";
 import { z } from "zod";
 
 const JWT_SECRET: string =

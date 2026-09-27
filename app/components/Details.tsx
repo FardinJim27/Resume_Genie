@@ -1,43 +1,14 @@
-import { cn } from "~/lib/utils";
+import { useState } from "react";
 import {
   Accordion,
   AccordionContent,
   AccordionHeader,
   AccordionItem,
 } from "./Accordion";
-
-const ScoreBadge = ({ score }: { score: number }) => {
-  return (
-    <div
-      className={cn(
-        "flex flex-row gap-1 items-center px-2 py-0.5 rounded-[96px]",
-        score > 69
-          ? "bg-badge-green"
-          : score > 39
-            ? "bg-badge-yellow"
-            : "bg-badge-red",
-      )}
-    >
-      <img
-        src={score > 69 ? "/icons/check.svg" : "/icons/warning.svg"}
-        alt="score"
-        className="size-4"
-      />
-      <p
-        className={cn(
-          "text-sm font-medium",
-          score > 69
-            ? "text-badge-green-text"
-            : score > 39
-              ? "text-badge-yellow-text"
-              : "text-badge-red-text",
-        )}
-      >
-        {score}/100
-      </p>
-    </div>
-  );
-};
+import ScoreBadge from "./ScoreBadge";
+import ResumeActionSuggestions from "~/components/ResumeActionSuggestions";
+import { cn } from "~/lib/utils";
+import { FaTasks, FaListUl } from "react-icons/fa";
 
 const CategoryHeader = ({
   title,
@@ -47,8 +18,8 @@ const CategoryHeader = ({
   categoryScore: number;
 }) => {
   return (
-    <div className="flex flex-row gap-4 items-center py-2">
-      <p className="text-2xl font-semibold">{title}</p>
+    <div className="flex flex-row gap-2 sm:gap-4 items-center py-1 sm:py-2">
+      <p className="text-base sm:text-xl md:text-2xl font-semibold text-gray-900 dark:text-white">{title}</p>
       <ScoreBadge score={categoryScore} />
     </div>
   );
@@ -60,8 +31,8 @@ const CategoryContent = ({
   tips: { type: "good" | "improve"; tip: string; explanation: string }[];
 }) => {
   return (
-    <div className="flex flex-col gap-4 items-center w-full">
-      <div className="bg-gray-50 w-full rounded-lg px-5 py-4 grid grid-cols-2 gap-4">
+    <div className="flex flex-col gap-3 sm:gap-4 items-center w-full">
+      <div className="bg-gray-50 dark:bg-slate-800/80 w-full rounded-xl p-3 sm:p-4 grid grid-cols-1 sm:grid-cols-2 gap-2.5 sm:gap-4 border border-gray-100 dark:border-slate-700/60">
         {tips.map((tip, index) => (
           <div className="flex flex-row gap-2 items-center" key={index}>
             <img
@@ -69,21 +40,21 @@ const CategoryContent = ({
                 tip.type === "good" ? "/icons/check.svg" : "/icons/warning.svg"
               }
               alt="score"
-              className="size-5"
+              className="size-4 sm:size-5 flex-shrink-0"
             />
-            <p className="text-xl text-gray-500 ">{tip.tip}</p>
+            <p className="text-xs sm:text-sm md:text-base text-gray-600 dark:text-slate-300 font-medium">{tip.tip}</p>
           </div>
         ))}
       </div>
-      <div className="flex flex-col gap-4 w-full">
+      <div className="flex flex-col gap-3 sm:gap-4 w-full">
         {tips.map((tip, index) => (
           <div
             key={index + tip.tip}
             className={cn(
-              "flex flex-col gap-2 rounded-2xl p-4",
+              "flex flex-col gap-1.5 sm:gap-2 rounded-xl sm:rounded-2xl p-3.5 sm:p-4",
               tip.type === "good"
-                ? "bg-green-50 border border-green-200 text-green-700"
-                : "bg-yellow-50 border border-yellow-200 text-yellow-700",
+                ? "bg-green-50/70 dark:bg-emerald-950/40 border border-green-200 dark:border-emerald-800/60 text-green-800 dark:text-emerald-200"
+                : "bg-amber-50/70 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800/60 text-amber-900 dark:text-amber-200",
             )}
           >
             <div className="flex flex-row gap-2 items-center">
@@ -94,11 +65,11 @@ const CategoryContent = ({
                     : "/icons/warning.svg"
                 }
                 alt="score"
-                className="size-5"
+                className="size-4 sm:size-5 flex-shrink-0"
               />
-              <p className="text-xl font-semibold">{tip.tip}</p>
+              <p className="text-sm sm:text-base font-semibold">{tip.tip}</p>
             </div>
-            <p>{tip.explanation}</p>
+            <p className="text-xs sm:text-sm opacity-90 leading-relaxed pl-6">{tip.explanation}</p>
           </div>
         ))}
       </div>
@@ -106,55 +77,110 @@ const CategoryContent = ({
   );
 };
 
-const Details = ({ feedback }: { feedback: Feedback }) => {
+export interface DetailsProps {
+  feedback: Feedback;
+  resumeId?: string;
+  jobTitle?: string;
+  companyName?: string;
+}
+
+const Details = ({
+  feedback,
+  resumeId = "default_resume",
+  jobTitle = "Target Role",
+  companyName = "Target Company",
+}: DetailsProps) => {
+  const [activeTab, setActiveTab] = useState<"cards" | "accordion">("cards");
+
   return (
-    <div className="flex flex-col gap-4 w-full">
-      <Accordion>
-        <AccordionItem id="tone-style">
-          <AccordionHeader itemId="tone-style">
-            <CategoryHeader
-              title="Tone & Style"
-              categoryScore={feedback.toneAndStyle.score}
-            />
-          </AccordionHeader>
-          <AccordionContent itemId="tone-style">
-            <CategoryContent tips={feedback.toneAndStyle.tips} />
-          </AccordionContent>
-        </AccordionItem>
-        <AccordionItem id="content">
-          <AccordionHeader itemId="content">
-            <CategoryHeader
-              title="Content"
-              categoryScore={feedback.content.score}
-            />
-          </AccordionHeader>
-          <AccordionContent itemId="content">
-            <CategoryContent tips={feedback.content.tips} />
-          </AccordionContent>
-        </AccordionItem>
-        <AccordionItem id="structure">
-          <AccordionHeader itemId="structure">
-            <CategoryHeader
-              title="Structure"
-              categoryScore={feedback.structure.score}
-            />
-          </AccordionHeader>
-          <AccordionContent itemId="structure">
-            <CategoryContent tips={feedback.structure.tips} />
-          </AccordionContent>
-        </AccordionItem>
-        <AccordionItem id="skills">
-          <AccordionHeader itemId="skills">
-            <CategoryHeader
-              title="Skills"
-              categoryScore={feedback.skills.score}
-            />
-          </AccordionHeader>
-          <AccordionContent itemId="skills">
-            <CategoryContent tips={feedback.skills.tips} />
-          </AccordionContent>
-        </AccordionItem>
-      </Accordion>
+    <div className="flex flex-col gap-5 w-full">
+      {/* Top View Selector Strip */}
+      <div className="flex flex-wrap items-center justify-between gap-3 p-1.5 bg-gray-100 dark:bg-slate-800/90 rounded-2xl border border-gray-200/60 dark:border-slate-700/60">
+        <button
+          type="button"
+          onClick={() => setActiveTab("cards")}
+          className={`flex-1 sm:flex-initial py-2.5 px-4 rounded-xl text-xs sm:text-sm font-bold flex items-center justify-center gap-2 transition-all cursor-pointer ${
+            activeTab === "cards"
+              ? "bg-white dark:bg-slate-700 text-blue-700 dark:text-blue-300 shadow-xs"
+              : "text-gray-600 dark:text-slate-400 hover:text-gray-900 dark:hover:text-slate-200"
+          }`}
+        >
+          <FaTasks className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
+          <span>Interactive Suggestion Cards</span>
+          <span className="text-[10px] px-2 py-0.5 rounded-full bg-blue-100 dark:bg-blue-950/70 text-blue-800 dark:text-blue-300 font-bold border border-transparent dark:border-blue-800/60">
+            Accept / Dismiss
+          </span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setActiveTab("accordion")}
+          className={`flex-1 sm:flex-initial py-2.5 px-4 rounded-xl text-xs sm:text-sm font-bold flex items-center justify-center gap-2 transition-all cursor-pointer ${
+            activeTab === "accordion"
+              ? "bg-white dark:bg-slate-700 text-gray-900 dark:text-white shadow-xs"
+              : "text-gray-600 dark:text-slate-400 hover:text-gray-900 dark:hover:text-slate-200"
+          }`}
+        >
+          <FaListUl className="w-3.5 h-3.5 text-gray-500 dark:text-slate-400" />
+          <span>Category Breakdown View</span>
+        </button>
+      </div>
+
+      {activeTab === "cards" ? (
+        <ResumeActionSuggestions
+          feedback={feedback}
+          resumeId={resumeId}
+          jobTitle={jobTitle}
+          companyName={companyName}
+        />
+      ) : (
+        <Accordion>
+          <AccordionItem id="tone-style">
+            <AccordionHeader itemId="tone-style">
+              <CategoryHeader
+                title="Tone & Style"
+                categoryScore={feedback.toneAndStyle.score}
+              />
+            </AccordionHeader>
+            <AccordionContent itemId="tone-style">
+              <CategoryContent tips={feedback.toneAndStyle.tips} />
+            </AccordionContent>
+          </AccordionItem>
+          <AccordionItem id="content">
+            <AccordionHeader itemId="content">
+              <CategoryHeader
+                title="Content"
+                categoryScore={feedback.content.score}
+              />
+            </AccordionHeader>
+            <AccordionContent itemId="content">
+              <CategoryContent tips={feedback.content.tips} />
+            </AccordionContent>
+          </AccordionItem>
+          <AccordionItem id="structure">
+            <AccordionHeader itemId="structure">
+              <CategoryHeader
+                title="Structure"
+                categoryScore={feedback.structure.score}
+              />
+            </AccordionHeader>
+            <AccordionContent itemId="structure">
+              <CategoryContent tips={feedback.structure.tips} />
+            </AccordionContent>
+          </AccordionItem>
+          <AccordionItem id="skills">
+            <AccordionHeader itemId="skills">
+              <CategoryHeader
+                title="Skills"
+                categoryScore={feedback.skills.score}
+              />
+            </AccordionHeader>
+            <AccordionContent itemId="skills">
+              <CategoryContent tips={feedback.skills.tips} />
+            </AccordionContent>
+          </AccordionItem>
+        </Accordion>
+      )}
     </div>
   );
 };

@@ -1,0 +1,7 @@
+{
+  "name": "Resume Genie",
+  "description": "AI-powered resume analyzer providing ATS scoring, comprehensive feedback, and improvement suggestions.",
+  "capabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}

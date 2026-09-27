@@ -3,6 +3,7 @@ import { useNavigate } from "react-router";
 import { useApiStore } from "~/lib/api";
 import Swal from "sweetalert2";
 import type { MetaFunction } from "react-router";
+import ThemeToggle from "~/components/ThemeToggle";
 
 export const meta: MetaFunction = () => [
   { title: "Resume Genie | Auth" },
@@ -132,6 +133,9 @@ const Auth = () => {
   return (
     <div className="auth-page">
       <div className="auth-overlay" />
+      <div className="absolute top-4 right-4 z-20">
+        <ThemeToggle size="sm" />
+      </div>
       <section className="auth-section">
         <div className="auth-container">
           <div className="auth-heading">
