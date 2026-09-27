@@ -35,7 +35,7 @@ export const links: Route.LinksFunction = () => [
 
 export function Layout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en">
+    <html lang="en" suppressHydrationWarning>
       <head>
         <meta charSet="utf-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
@@ -50,10 +50,8 @@ export function Layout({ children }: { children: React.ReactNode }) {
                 var isDark = stored === 'dark' || (!stored && prefersDark) || (stored === 'system' && prefersDark);
                 if (isDark) {
                   document.documentElement.classList.add('dark');
-                  document.documentElement.style.colorScheme = 'dark';
                 } else {
                   document.documentElement.classList.remove('dark');
-                  document.documentElement.style.colorScheme = 'light';
                 }
               } catch (e) {}
             })();`,

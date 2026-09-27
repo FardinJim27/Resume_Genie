@@ -14,6 +14,7 @@ interface ThemeContextType {
   resolvedTheme: ResolvedTheme;
   setTheme: (theme: Theme) => void;
   toggleTheme: () => void;
+  mounted: boolean;
 }
 
 const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
@@ -28,24 +29,9 @@ function getSystemTheme(): ResolvedTheme {
 }
 
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
-  const [theme, setThemeState] = useState<Theme>(() => {
-    if (typeof window === "undefined") return "system";
-    try {
-      const stored = localStorage.getItem(STORAGE_KEY) as Theme | null;
-      if (stored === "light" || stored === "dark" || stored === "system") {
-        return stored;
-      }
-    } catch {
-      // Fallback
-    }
-    return "system";
-  });
-
-  const [resolvedTheme, setResolvedTheme] = useState<ResolvedTheme>(() => {
-    if (typeof window === "undefined") return "light";
-    if (theme === "system") return getSystemTheme();
-    return theme;
-  });
+  const [theme, setThemeState] = useState<Theme>("system");
+  const [resolvedTheme, setResolvedTheme] = useState<ResolvedTheme>("light");
+  const [mounted, setMounted] = useState(false);
 
   const applyTheme = useCallback((targetTheme: Theme) => {
     if (typeof document === "undefined") return;
@@ -58,10 +44,8 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     const root = document.documentElement;
     if (resolved === "dark") {
       root.classList.add("dark");
-      root.style.colorScheme = "dark";
     } else {
       root.classList.remove("dark");
-      root.style.colorScheme = "light";
     }
   }, []);
 
@@ -86,11 +70,23 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
 
   // Initial mount & system preference listener
   useEffect(() => {
-    applyTheme(theme);
+    setMounted(true);
+    let initialTheme: Theme = "system";
+    try {
+      const stored = localStorage.getItem(STORAGE_KEY) as Theme | null;
+      if (stored === "light" || stored === "dark" || stored === "system") {
+        initialTheme = stored;
+      }
+    } catch {
+      // Fallback
+    }
+    setThemeState(initialTheme);
+    applyTheme(initialTheme);
 
     const mediaQuery = window.matchMedia("(prefers-color-scheme: dark)");
     const handleChange = () => {
-      if (theme === "system") {
+      const currentStored = localStorage.getItem(STORAGE_KEY);
+      if (!currentStored || currentStored === "system") {
         applyTheme("system");
       }
     };
@@ -102,7 +98,7 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
       mediaQuery.addListener(handleChange);
       return () => mediaQuery.removeListener(handleChange);
     }
-  }, [theme, applyTheme]);
+  }, [applyTheme]);
 
   return (
     <ThemeContext.Provider
@@ -111,6 +107,7 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
         resolvedTheme,
         setTheme,
         toggleTheme,
+        mounted,
       }}
     >
       {children}

@@ -21,6 +21,14 @@
   --color-badge-yellow-text: #73321b;
 }
 
+html {
+  color-scheme: light;
+}
+
+html.dark {
+  color-scheme: dark;
+}
+
 html,
 body {
   @apply bg-white text-gray-900 transition-colors duration-200;
