@@ -21,6 +21,55 @@ interface Resume {
   updatedAt: string;
 }
 
+export interface CareerGrowthAdvice {
+  candidateProfile: {
+    currentEstimatedLevel: string;
+    primarySpecialization: string;
+    experienceSummary: string;
+    marketDemandRating: "Very High" | "High" | "Moderate";
+    targetFitScore: number;
+    salaryBenchmarkRange: {
+      currency: string;
+      medianAnnual: string;
+      topTierAnnual: string;
+      growthProjection: string;
+    };
+  };
+  growthRoadmap: {
+    timeline: string;
+    milestoneTitle: string;
+    focusAreas: string[];
+    actionItems: {
+      action: string;
+      rationale: string;
+      priority: "critical" | "high" | "medium";
+    }[];
+  }[];
+  industryStandardSkills: {
+    category: string;
+    skills: {
+      name: string;
+      status: "detected" | "recommended" | "gap";
+      importance: "Critical" | "High" | "Advantageous";
+      relevanceScore: number;
+      marketReason: string;
+      learningPath: string;
+      suggestedResumeBullet: string;
+    }[];
+  }[];
+  careerPivotPaths: {
+    roleTitle: string;
+    fitPercentage: number;
+    description: string;
+    keyBridgingSkills: string[];
+  }[];
+  strategicAdvice: {
+    title: string;
+    category: string;
+    recommendation: string;
+  }[];
+}
+
 interface ApiStore {
   isLoading: boolean;
   error: string | null;
@@ -53,6 +102,16 @@ interface ApiStore {
   getAllResumes: () => Promise<Resume[]>;
   deleteResume: (id: string) => Promise<boolean>;
   getFileUrl: (filename: string) => string;
+  getCareerGrowthAdvice: (
+    resumeId: string,
+    options?: { targetRole?: string; refresh?: boolean },
+  ) => Promise<CareerGrowthAdvice | null>;
+  generateDirectCareerGrowthAdvice: (params: {
+    resumeText: string;
+    jobTitle?: string;
+    jobDescription?: string;
+    targetRole?: string;
+  }) => Promise<CareerGrowthAdvice | null>;
 
   clearError: () => void;
 }
@@ -361,6 +420,83 @@ export const useApiStore = create<ApiStore>((set, get) => {
     }
   };
 
+  const getCareerGrowthAdvice = async (
+    resumeId: string,
+    options?: { targetRole?: string; refresh?: boolean },
+  ): Promise<CareerGrowthAdvice | null> => {
+    const { token } = get();
+    if (!token) {
+      setError("Not authenticated");
+      return null;
+    }
+
+    try {
+      const response = await fetch(
+        `${API_URL}/api/resumes/${resumeId}/career-growth`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify(options || {}),
+        },
+      );
+
+      if (!response.ok) {
+        const data = await response.json();
+        setError(data.error || "Failed to load career growth advice");
+        return null;
+      }
+
+      const result = await response.json();
+      return result.careerGrowth || null;
+    } catch (err) {
+      const msg =
+        err instanceof Error
+          ? err.message
+          : "Failed to load career growth advice";
+      setError(msg);
+      return null;
+    }
+  };
+
+  const generateDirectCareerGrowthAdvice = async (params: {
+    resumeText: string;
+    jobTitle?: string;
+    jobDescription?: string;
+    targetRole?: string;
+  }): Promise<CareerGrowthAdvice | null> => {
+    try {
+      const response = await fetch(
+        `${API_URL}/api/resumes/career-growth/direct`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(params),
+        },
+      );
+
+      if (!response.ok) {
+        const data = await response.json();
+        setError(data.error || "Failed to generate career growth advice");
+        return null;
+      }
+
+      const result = await response.json();
+      return result.careerGrowth || null;
+    } catch (err) {
+      const msg =
+        err instanceof Error
+          ? err.message
+          : "Failed to generate career growth advice";
+      setError(msg);
+      return null;
+    }
+  };
+
   const getFileUrl = (filename: string): string => {
     if (!filename) return "";
     // If it's already a data URL (base64 stored in DB), return as-is
@@ -385,6 +521,8 @@ export const useApiStore = create<ApiStore>((set, get) => {
     getAllResumes,
     deleteResume,
     getFileUrl,
+    getCareerGrowthAdvice,
+    generateDirectCareerGrowthAdvice,
     clearError: () => set({ error: null }),
   };
 });

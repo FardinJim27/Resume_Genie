@@ -4,7 +4,7 @@ import fileUpload from "express-fileupload";
 import { authMiddleware, type AuthRequest } from "../middleware/auth.js";
 import { db } from "../db/index.js";
 import { resumes } from "../db/schema.js";
-import { analyzeResume } from "../lib/ai.js";
+import { analyzeResume, generateCareerGrowthAdvice } from "../lib/ai.js";
 import { convertPdfToImage } from "../lib/pdf-to-image.js";
 import { eq, and, desc } from "drizzle-orm";
 import path from "path";
@@ -276,6 +276,130 @@ router.delete(
       res.json({ message: "Resume deleted successfully" });
     } catch (error) {
       res.status(500).json({ error: "Failed to delete resume" });
+    }
+  },
+);
+
+// AI-generated Career Growth Advice and Industry-Standard Skill Suggestions
+router.post(
+  "/:id/career-growth",
+  authMiddleware,
+  async (req: AuthRequest, res: Response): Promise<void> => {
+    try {
+      if (!req.user) {
+        res.status(401).json({ error: "Unauthorized" });
+        return;
+      }
+
+      const resumeId = Array.isArray(req.params.id)
+        ? req.params.id[0]
+        : req.params.id;
+      const { targetRole, refresh } = req.body || {};
+
+      const [resume] = await db
+        .select()
+        .from(resumes)
+        .where(
+          and(eq(resumes.id, resumeId), eq(resumes.userId, req.user.userId)),
+        )
+        .limit(1);
+
+      if (!resume) {
+        res.status(404).json({ error: "Resume not found" });
+        return;
+      }
+
+      const existingFeedback = (resume.feedback || {}) as any;
+
+      // Return cached career growth if available and not explicitly requesting refresh or different target role
+      if (
+        !refresh &&
+        existingFeedback.careerGrowth &&
+        (!targetRole || existingFeedback.careerGrowthTargetRole === targetRole)
+      ) {
+        res.json({ careerGrowth: existingFeedback.careerGrowth });
+        return;
+      }
+
+      // Read resume file text or extract from file
+      const resumeFilePath = path.join(UPLOAD_DIR, resume.resumePath);
+      let resumeText = "";
+      try {
+        const isDocx = resume.resumePath.toLowerCase().endsWith(".docx");
+        if (isDocx) {
+          const buffer = await fs.readFile(resumeFilePath);
+          const mammoth = await import("mammoth");
+          const result = await mammoth.default.extractRawText({ buffer });
+          resumeText = (result.value || "").trim();
+        } else {
+          const pdfData = await fs.readFile(resumeFilePath);
+          const uint8Array = new Uint8Array(pdfData);
+          const pdfjsLib = await import("pdfjs-dist/legacy/build/pdf.mjs");
+          const loadingTask = pdfjsLib.getDocument({ data: uint8Array });
+          const pdfDocument = await loadingTask.promise;
+          for (let pageNum = 1; pageNum <= pdfDocument.numPages; pageNum++) {
+            const page = await pdfDocument.getPage(pageNum);
+            const textContent = await page.getTextContent();
+            resumeText +=
+              textContent.items.map((item: any) => item.str).join(" ") + " ";
+          }
+          resumeText = resumeText.trim();
+        }
+      } catch (readErr) {
+        console.warn("[CareerGrowth] Warning reading resume file:", readErr);
+      }
+
+      const advice = await generateCareerGrowthAdvice(
+        resumeText,
+        resume.jobTitle,
+        resume.jobDescription,
+        targetRole,
+      );
+
+      // Save into DB
+      const updatedFeedback = {
+        ...existingFeedback,
+        careerGrowth: advice,
+        careerGrowthTargetRole: targetRole || resume.jobTitle,
+        careerGrowthGeneratedAt: new Date().toISOString(),
+      };
+
+      await db
+        .update(resumes)
+        .set({ feedback: updatedFeedback })
+        .where(eq(resumes.id, resumeId));
+
+      res.json({ careerGrowth: advice });
+    } catch (error: any) {
+      console.error("[CareerGrowth] Error generating advice:", error);
+      res.status(500).json({ error: "Failed to generate career growth advice" });
+    }
+  },
+);
+
+// Preview / Direct Career Growth Advice without saved resume
+router.post(
+  "/career-growth/direct",
+  async (req: Request, res: Response): Promise<void> => {
+    try {
+      const { resumeText, jobTitle, jobDescription, targetRole } =
+        req.body || {};
+      if (!resumeText || resumeText.trim().length < 15) {
+        res.status(400).json({ error: "Resume text is required" });
+        return;
+      }
+
+      const advice = await generateCareerGrowthAdvice(
+        resumeText,
+        jobTitle || "Software Engineer",
+        jobDescription || "",
+        targetRole,
+      );
+
+      res.json({ careerGrowth: advice });
+    } catch (error: any) {
+      console.error("[CareerGrowth] Direct generation error:", error);
+      res.status(500).json({ error: "Failed to generate career advice" });
     }
   },
 );

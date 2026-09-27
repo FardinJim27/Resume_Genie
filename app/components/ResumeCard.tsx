@@ -4,6 +4,7 @@ import ScoreCircle from "~/components/ScoreCircle";
 import { useApiStore } from "~/lib/api";
 import { convertPdfToImage } from "~/lib/pdf2img";
 import Swal from "sweetalert2";
+import { FaRocket } from "react-icons/fa";
 
 interface ResumeCardProps {
   id: string;
@@ -198,7 +199,18 @@ const ResumeCard = ({
                         d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"
                       />
                     </svg>
-                    Open
+                    Open Review
+                  </button>
+                  <button
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      navigate(`/resume/${id}#career-growth`);
+                    }}
+                    className="w-full px-4 py-2 text-left text-sm text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-950/40 flex items-center gap-2 cursor-pointer"
+                  >
+                    <FaRocket className="w-3.5 h-3.5" />
+                    Career Growth & Skills
                   </button>
                   <button
                     onClick={handleDelete}

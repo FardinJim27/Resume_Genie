@@ -10,8 +10,9 @@ import ResumeScoreComparison from "~/components/ResumeScoreComparison";
 import JobKeywordMatcher from "~/components/JobKeywordMatcher";
 import ThemeToggle from "~/components/ThemeToggle";
 import { saveAnalysisToHistory, getAnalysesHistory } from "~/lib/historyStorage";
-import { FaBalanceScale, FaChartPie, FaFileAlt, FaExpand, FaTimes } from "react-icons/fa";
+import { FaBalanceScale, FaChartPie, FaFileAlt, FaExpand, FaTimes, FaRocket } from "react-icons/fa";
 import { AiOutlineHistory } from "react-icons/ai";
+import CareerGrowthAdviceModule from "~/components/CareerGrowthAdviceModule";
 
 export const meta = () => [
   { title: "Resume Genie | Review " },
@@ -291,7 +292,14 @@ const Resume = () => {
               Resume Review
             </h2>
             {feedback && !("error" in feedback) && (
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 flex-wrap">
+                <a
+                  href="#career-growth"
+                  className="px-3 sm:px-4 py-2 rounded-xl border border-blue-300 dark:border-blue-700/50 bg-blue-50 dark:bg-blue-950/40 hover:bg-blue-100 dark:hover:bg-blue-900/50 text-blue-900 dark:text-blue-200 font-semibold text-xs md:text-sm flex items-center gap-1.5 shadow-xs transition-all cursor-pointer"
+                >
+                  <FaRocket className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
+                  <span>Growth & Skills</span>
+                </a>
                 <button
                   type="button"
                   onClick={() => setShowComparison((prev) => !prev)}
@@ -335,6 +343,14 @@ const Resume = () => {
           {feedback && !("error" in feedback) ? (
             <div className="flex flex-col gap-8 animate-in fade-in duration-1000">
               <Summary feedback={feedback} />
+              <div id="career-growth" className="scroll-mt-6">
+                <CareerGrowthAdviceModule
+                  resumeId={id || ""}
+                  jobTitle={resumeMeta.jobTitle}
+                  companyName={resumeMeta.companyName}
+                  initialAdvice={(feedback as any)?.careerGrowth || null}
+                />
+              </div>
               <ATSScoreBreakdownChart feedback={feedback} />
               <JobKeywordMatcher
                 jobDescription={resumeMeta.jobDescription}
