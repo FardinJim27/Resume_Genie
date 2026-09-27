@@ -1,6 +1,15 @@
 import { create } from "zustand";
 
-const API_URL = import.meta.env.VITE_API_URL || "";
+// In browser, the frontend and API routes are served together by the Express server on port 3000.
+// Using relative paths ("") guarantees requests hit the right host without mixed content or wrong port errors.
+const getApiBaseUrl = (): string => {
+  if (typeof window !== "undefined") {
+    return "";
+  }
+  return import.meta.env.VITE_API_URL || "";
+};
+
+const API_URL = getApiBaseUrl();
 
 interface User {
   id: string;
@@ -99,6 +108,7 @@ interface ApiStore {
     extractedText?: string,
   ) => Promise<string | null>;
   getResume: (id: string) => Promise<Resume | null>;
+  retryAnalysis: (id: string) => Promise<Resume | null>;
   getAllResumes: () => Promise<Resume[]>;
   deleteResume: (id: string) => Promise<boolean>;
   getFileUrl: (filename: string) => string;
@@ -358,6 +368,40 @@ export const useApiStore = create<ApiStore>((set, get) => {
     }
   };
 
+  const retryAnalysis = async (id: string): Promise<Resume | null> => {
+    const { token } = get();
+    if (!token) {
+      setError("Not authenticated");
+      return null;
+    }
+
+    set({ isLoading: true, error: null });
+
+    try {
+      const response = await fetch(`${API_URL}/api/resumes/${id}/retry`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      if (!response.ok) {
+        const data = await response.json();
+        setError(data.error || "Failed to reanalyze resume");
+        return null;
+      }
+
+      const data = await response.json();
+      set({ isLoading: false });
+      return data.resume;
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Failed to reanalyze resume";
+      setError(msg);
+      return null;
+    }
+  };
+
   const getAllResumes = async (): Promise<Resume[]> => {
     const { token } = get();
     if (!token) {
@@ -518,6 +562,7 @@ export const useApiStore = create<ApiStore>((set, get) => {
     resetPassword,
     uploadResume,
     getResume,
+    retryAnalysis,
     getAllResumes,
     deleteResume,
     getFileUrl,

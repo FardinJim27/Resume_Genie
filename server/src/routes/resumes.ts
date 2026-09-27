@@ -377,6 +377,59 @@ router.post(
   },
 );
 
+// Re-analyze / Retry Resume Analysis
+router.post(
+  "/:id/retry",
+  authMiddleware,
+  async (req: AuthRequest, res: Response): Promise<void> => {
+    try {
+      if (!req.user) {
+        res.status(401).json({ error: "Unauthorized" });
+        return;
+      }
+
+      const resumeId = Array.isArray(req.params.id)
+        ? req.params.id[0]
+        : req.params.id;
+
+      const [resume] = await db
+        .select()
+        .from(resumes)
+        .where(
+          and(eq(resumes.id, resumeId), eq(resumes.userId, req.user.userId)),
+        )
+        .limit(1);
+
+      if (!resume) {
+        res.status(404).json({ error: "Resume not found" });
+        return;
+      }
+
+      const resumeFilePath = path.join(UPLOAD_DIR, resume.resumePath);
+
+      // Trigger analysis immediately
+      await analyzeResume(
+        resume.id,
+        resumeFilePath,
+        resume.jobTitle,
+        resume.jobDescription,
+      );
+
+      // Fetch updated record
+      const [updated] = await db
+        .select()
+        .from(resumes)
+        .where(eq(resumes.id, resumeId))
+        .limit(1);
+
+      res.json({ message: "Analysis completed", resume: updated });
+    } catch (error) {
+      console.error("[Resume Retry] Error reanalyzing resume:", error);
+      res.status(500).json({ error: "Failed to reanalyze resume" });
+    }
+  },
+);
+
 // Preview / Direct Career Growth Advice without saved resume
 router.post(
   "/career-growth/direct",

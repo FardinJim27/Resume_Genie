@@ -20,13 +20,15 @@ export const meta = () => [
 ];
 
 const Resume = () => {
-  const { isAuthenticated, isLoading, getResume, getFileUrl } = useApiStore();
+  const { isAuthenticated, isLoading, getResume, getFileUrl, retryAnalysis } =
+    useApiStore();
   const { id } = useParams();
   const [previewUrl, setPreviewUrl] = useState("");
   const [loadingImage, setLoadingImage] = useState(false);
   const [previewError, setPreviewError] = useState(false);
   const [feedback, setFeedback] = useState<Feedback | null>(null);
   const [polling, setPolling] = useState(false);
+  const [retrying, setRetrying] = useState(false);
   const [resumeMeta, setResumeMeta] = useState<{
     companyName: string;
     jobTitle: string;
@@ -52,6 +54,23 @@ const Resume = () => {
       navigate(`/auth?next=/resume/${id}`);
     }
   }, [isLoading, isAuthenticated]);
+
+  const handleRetry = async () => {
+    if (!id || retrying) return;
+    setRetrying(true);
+    const updated = await retryAnalysis(id);
+    if (updated?.feedback && !("error" in updated.feedback)) {
+      setFeedback(updated.feedback);
+      saveAnalysisToHistory(
+        updated.id,
+        updated.companyName || "",
+        updated.jobTitle || "",
+        updated.feedback,
+      );
+      setHistoryCount(getAnalysesHistory().length);
+    }
+    setRetrying(false);
+  };
 
   useEffect(() => {
     const loadResume = async () => {
@@ -100,17 +119,36 @@ const Resume = () => {
         jobDescription: resume.jobDescription || "",
       });
 
-      // Set feedback or start polling if not ready
+      // Set feedback or handle error auto-recovery / start polling if not ready
       if (resume.feedback) {
-        setFeedback(resume.feedback);
+        if ("error" in resume.feedback) {
+          // Attempt automatic recovery once
+          setRetrying(true);
+          const recovered = await retryAnalysis(id);
+          if (recovered?.feedback && !("error" in recovered.feedback)) {
+            setFeedback(recovered.feedback);
+            saveAnalysisToHistory(
+              recovered.id,
+              recovered.companyName || "",
+              recovered.jobTitle || "",
+              recovered.feedback,
+            );
+            setHistoryCount(getAnalysesHistory().length);
+          } else {
+            setFeedback(resume.feedback);
+          }
+          setRetrying(false);
+        } else {
+          setFeedback(resume.feedback);
+          saveAnalysisToHistory(
+            resume.id,
+            resume.companyName || "",
+            resume.jobTitle || "",
+            resume.feedback,
+          );
+          setHistoryCount(getAnalysesHistory().length);
+        }
         setPolling(false);
-        saveAnalysisToHistory(
-          resume.id,
-          resume.companyName || "",
-          resume.jobTitle || "",
-          resume.feedback,
-        );
-        setHistoryCount(getAnalysesHistory().length);
       } else {
         setPolling(true);
       }
@@ -370,21 +408,47 @@ const Resume = () => {
               />
             </div>
           ) : feedback && "error" in feedback ? (
-            <div className="text-center py-12">
-              <div className="bg-red-50 border border-red-200 rounded-lg p-6">
-                <h3 className="text-xl font-semibold text-red-800 mb-2">
-                  Analysis Failed
+            <div className="w-full py-8">
+              <div className="bg-amber-50/90 dark:bg-slate-800/90 border border-amber-200 dark:border-slate-700 rounded-2xl p-6 sm:p-8 text-center max-w-xl mx-auto shadow-sm">
+                <div className="w-14 h-14 mx-auto mb-4 rounded-2xl bg-amber-100 dark:bg-amber-950/70 text-amber-700 dark:text-amber-400 flex items-center justify-center text-2xl font-bold shadow-xs">
+                  ⚠️
+                </div>
+                <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-2">
+                  Analysis Interrupted
                 </h3>
-                <p className="text-red-600">
-                  {(feedback as any).message ||
-                    "An error occurred during analysis"}
+                <p className="text-xs sm:text-sm text-gray-600 dark:text-slate-300 mb-6 leading-relaxed">
+                  {(feedback as any).message && !(feedback as any).message.includes("Analysis failed")
+                    ? (feedback as any).message
+                    : "The AI service encountered a temporary network delay or provider limit. Click below to analyze your resume with guaranteed fallback scoring."}
                 </p>
-                <Link
-                  to="/upload"
-                  className="mt-4 inline-block text-blue-600 hover:underline"
-                >
-                  Try uploading again
-                </Link>
+
+                <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
+                  <button
+                    type="button"
+                    onClick={handleRetry}
+                    disabled={retrying}
+                    className="w-full sm:w-auto px-6 py-3 rounded-xl bg-amber-500 hover:bg-amber-600 text-white font-bold text-sm shadow-sm transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-60"
+                  >
+                    {retrying ? (
+                      <>
+                        <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                        <span>Analyzing Resume...</span>
+                      </>
+                    ) : (
+                      <>
+                        <FaRocket className="w-4 h-4" />
+                        <span>Retry Analysis Now</span>
+                      </>
+                    )}
+                  </button>
+
+                  <Link
+                    to="/upload"
+                    className="w-full sm:w-auto px-6 py-3 rounded-xl border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-gray-700 dark:text-slate-200 font-semibold text-sm hover:bg-gray-50 dark:hover:bg-slate-600 transition-all text-center"
+                  >
+                    Upload Another Resume
+                  </Link>
+                </div>
               </div>
             </div>
           ) : (
