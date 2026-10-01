@@ -6,6 +6,7 @@ import { db } from "../db/index.js";
 import { resumes } from "../db/schema.js";
 import { analyzeResume, generateCareerGrowthAdvice } from "../lib/ai.js";
 import { convertPdfToImage } from "../lib/pdf-to-image.js";
+import { validateUploadedFile } from "../lib/file-validator.js";
 import { eq, and, desc } from "drizzle-orm";
 import path from "path";
 import fs from "fs/promises";
@@ -49,11 +50,34 @@ router.post(
 
       // Save file with appropriate extension (.docx or .pdf)
       const timestamp = Date.now();
-      const isDocx = resumeFile.name.toLowerCase().endsWith(".docx");
+      const originalName = (resumeFile.name || "").toLowerCase();
+      const isDocx = originalName.endsWith(".docx");
+      const isPdf = originalName.endsWith(".pdf");
+
+      if (!isDocx && !isPdf) {
+        res.status(400).json({
+          error: "Unsupported file type. Please upload a PDF or DOCX file.",
+        });
+        return;
+      }
+
       const ext = isDocx ? "docx" : "pdf";
       const resumeFileName = `${req.user.userId}_${timestamp}_resume.${ext}`;
       const resumePath = path.join(UPLOAD_DIR, resumeFileName);
       await resumeFile.mv(resumePath);
+
+      // Validate file integrity, non-emptiness, and magic byte headers before proceeding
+      const validation = await validateUploadedFile(resumePath);
+      if (!validation.isValid) {
+        // Clean up unparseable or malicious file immediately
+        await fs.unlink(resumePath).catch(() => {});
+        res.status(400).json({
+          error:
+            validation.error ||
+            "The uploaded resume file failed integrity verification.",
+        });
+        return;
+      }
 
       // Determine image storage: prefer client-sent base64 data URL (persists across restarts)
       let imageStorageValue = "";

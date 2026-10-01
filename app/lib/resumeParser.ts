@@ -1,5 +1,6 @@
 import pdfjsWorkerUrl from "pdfjs-dist/build/pdf.worker.min.mjs?url";
 import mammoth from "mammoth";
+import { validateFileIntegrity } from "./fileValidation";
 
 export interface DetectedContact {
   emails: string[];
@@ -79,7 +80,8 @@ function analyzeExtractedResume(
   previewUrl?: string,
 ): ParsedResumeData {
   // Normalize whitespace & remove excessive empty lines
-  const cleanText = rawText
+  const safeText = typeof rawText === "string" ? rawText : "";
+  const cleanText = safeText
     .replace(/\r\n/g, "\n")
     .replace(/[ \t]+/g, " ")
     .replace(/\n{3,}/g, "\n\n")
@@ -223,32 +225,54 @@ function analyzeExtractedResume(
 export async function extractTextFromPdf(file: File): Promise<ParsedResumeData> {
   const lib = await loadPdfJs();
   const arrayBuffer = await file.arrayBuffer();
-  const pdf = await lib.getDocument({ data: arrayBuffer }).promise;
-  const pageCount = pdf.numPages;
+  if (!arrayBuffer || arrayBuffer.byteLength === 0) {
+    throw new Error("Unable to read PDF file data (file appears empty or unreadable).");
+  }
 
+  const pdf = await lib.getDocument({ data: arrayBuffer }).promise;
+  if (!pdf || typeof pdf.numPages !== "number" || pdf.numPages <= 0) {
+    throw new Error("PDF document structure is empty or contains no parseable pages.");
+  }
+
+  const pageCount = pdf.numPages;
   let fullText = "";
+
   for (let i = 1; i <= pageCount; i++) {
-    const page = await pdf.getPage(i);
-    const content = await page.getTextContent();
-    const pageStrings = content.items.map((item: any) => item.str || "");
-    const pageText = pageStrings.join(" ").replace(/\s+/g, " ").trim();
-    if (pageText) {
-      fullText += (i > 1 ? `\n\n--- Page ${i} ---\n\n` : "") + pageText;
+    try {
+      const page = await pdf.getPage(i);
+      if (!page) continue;
+
+      const content = await page.getTextContent();
+      if (!content || !Array.isArray(content.items)) continue;
+
+      const pageStrings = content.items
+        .filter((item: any) => item != null && typeof item.str === "string")
+        .map((item: any) => item.str);
+
+      const pageText = pageStrings.join(" ").replace(/\s+/g, " ").trim();
+      if (pageText) {
+        fullText += (fullText ? `\n\n--- Page ${i} ---\n\n` : "") + pageText;
+      }
+    } catch (pageErr) {
+      console.warn(`[PDF Parser] Error reading page ${i}:`, pageErr);
+      // Non-fatal: continue extracting other pages
     }
   }
 
-  // Render thumbnail of page 1
+  // Render thumbnail of page 1 safely
   let previewUrl: string | undefined;
   try {
     const page1 = await pdf.getPage(1);
-    const viewport = page1.getViewport({ scale: 1.5 });
-    const canvas = document.createElement("canvas");
-    canvas.width = viewport.width;
-    canvas.height = viewport.height;
-    const ctx = canvas.getContext("2d");
-    if (ctx) {
-      await page1.render({ canvasContext: ctx, viewport }).promise;
-      previewUrl = canvas.toDataURL("image/jpeg", 0.85);
+    if (page1) {
+      const viewport = page1.getViewport({ scale: 1.5 });
+      const canvas = document.createElement("canvas");
+      canvas.width = viewport.width;
+      canvas.height = viewport.height;
+      const ctx = canvas.getContext("2d");
+      if (ctx) {
+        await page1.render({ canvasContext: ctx, viewport }).promise;
+        previewUrl = canvas.toDataURL("image/jpeg", 0.85);
+      }
     }
   } catch (err) {
     console.warn("Could not generate PDF thumbnail:", err);
@@ -263,8 +287,12 @@ export async function extractTextFromPdf(file: File): Promise<ParsedResumeData> 
  */
 export async function extractTextFromDocx(file: File): Promise<ParsedResumeData> {
   const arrayBuffer = await file.arrayBuffer();
+  if (!arrayBuffer || arrayBuffer.byteLength === 0) {
+    throw new Error("Unable to read DOCX file data (file appears empty or unreadable).");
+  }
+
   const result = await mammoth.extractRawText({ arrayBuffer });
-  const rawText = result.value || "";
+  const rawText = (result && typeof result.value === "string") ? result.value : "";
 
   // Estimate page count for DOCX (~400 words per single-spaced page)
   const words = rawText.split(/\s+/).filter(Boolean);
@@ -319,19 +347,17 @@ export async function extractTextFromDocx(file: File): Promise<ParsedResumeData>
 
 /**
  * Universal resume parser entry point: supports PDF and DOCX.
+ * Pre-validates file integrity, size, and magic byte signatures before parsing.
  */
 export async function parseResumeFile(file: File): Promise<ParsedResumeData> {
-  const isPdf =
-    file.type === "application/pdf" ||
-    file.name.toLowerCase().endsWith(".pdf");
+  const validation = await validateFileIntegrity(file);
+  if (!validation.isValid) {
+    throw new Error(validation.error || "File integrity validation failed.");
+  }
 
-  const isDocx =
-    file.type === "application/vnd.openxmlformats-officedocument.wordprocessingml.document" ||
-    file.name.toLowerCase().endsWith(".docx");
-
-  if (isPdf) {
+  if (validation.fileType === "pdf") {
     return extractTextFromPdf(file);
-  } else if (isDocx) {
+  } else if (validation.fileType === "docx") {
     return extractTextFromDocx(file);
   } else {
     throw new Error(`Unsupported file type: ${file.name}. Please upload a PDF or DOCX file.`);
