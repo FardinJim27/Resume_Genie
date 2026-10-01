@@ -1,0 +1,42 @@
+{
+  "users": [
+    {
+      "id": "7fef7713-1959-4981-8939-15da54a12f26",
+      "username": "fardinjim",
+      "email": "fardin.ahmed01@northsouth.edu",
+      "passwordHash": "$2b$10$EJZ.RSGbOEmg4O0dPji.luw29MF8GuXnct1N1rvJM2vFKFjenYUN2",
+      "role": "user",
+      "createdAt": "2026-01-27T19:59:46.203Z",
+      "updatedAt": "2026-01-27T19:59:46.203Z"
+    },
+    {
+      "id": "1627f9df-fe4d-4353-9c6c-3a9ddf65fb30",
+      "username": "Fardin_Jim",
+      "email": "fardinahmed.jim.7@gmail.com",
+      "passwordHash": "$2b$10$m9kkqfbEWMKlyWdApakjVuBV/kJgveGp8RJqklQXLBgnChK0Cx08G",
+      "role": "admin",
+      "createdAt": "2026-01-27T20:46:48.836Z",
+      "updatedAt": "2026-01-27T14:47:15.491Z"
+    },
+    {
+      "id": "demo-user-default-id",
+      "username": "demo_user",
+      "email": "demo@resumegenie.com",
+      "passwordHash": "$2b$10$2C2gLtFBv3Dkq3r5m/VrFu/Jti2WuBk4xbt520EGN.Ogk4fASUIgm",
+      "role": "user",
+      "createdAt": "2026-10-01T14:55:01.569Z",
+      "updatedAt": "2026-10-01T14:55:01.570Z"
+    },
+    {
+      "id": "fardin-primary-user-id",
+      "username": "fardinjim77",
+      "email": "fardinjim77@gmail.com",
+      "passwordHash": "$2b$10$2C2gLtFBv3Dkq3r5m/VrFu/Jti2WuBk4xbt520EGN.Ogk4fASUIgm",
+      "role": "admin",
+      "createdAt": "2026-10-01T14:55:01.570Z",
+      "updatedAt": "2026-10-01T14:55:01.570Z"
+    }
+  ],
+  "resumes": [],
+  "savedAt": "2026-10-01T14:56:36.861Z"
+}
