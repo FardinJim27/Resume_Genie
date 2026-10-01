@@ -95,8 +95,21 @@ export async function parsePdfBuffer(pdfBuffer: Buffer): Promise<PdfParseResult>
     };
   } catch (pdfjsErr) {
     console.warn("[PDF-Parse] Secondary fallback also failed:", pdfjsErr);
-    return { text: "", numpages: 0 };
   }
+
+  // 3. Tertiary Fallback: Check if the buffer is plain UTF-8 text (e.g. testing or plain text upload)
+  try {
+    const rawString = pdfBuffer.toString("utf-8");
+    const printableCount = (rawString.match(/[\x20-\x7E\t\r\n]/g) || []).length;
+    if (rawString.length > 0 && printableCount / rawString.length > 0.85 && rawString.trim().length > 10) {
+      return {
+        text: rawString.trim(),
+        numpages: 1,
+      };
+    }
+  } catch {}
+
+  return { text: "", numpages: 0 };
 }
 
 /**
