@@ -116,6 +116,26 @@ export interface CareerGrowthAdvice {
   }[];
 }
 
+export interface BackendParseResponse {
+  success: boolean;
+  fileName: string;
+  fileSize?: number;
+  charCount: number;
+  wordCount: number;
+  pageCount: number;
+  extractedText: string;
+  cleanText?: string;
+  detectedContact?: {
+    email?: string;
+    phone?: string;
+    linkedin?: string;
+    github?: string;
+  };
+  detectedSections?: string[];
+  feedback?: Feedback;
+  error?: string;
+}
+
 interface ApiStore {
   isLoading: boolean;
   error: string | null;
@@ -159,6 +179,7 @@ interface ApiStore {
     jobDescription?: string;
     targetRole?: string;
   }) => Promise<CareerGrowthAdvice | null>;
+  parseResumeWithBackend: (file: File) => Promise<BackendParseResponse | null>;
   clearError: () => void;
 }
 
@@ -597,6 +618,41 @@ export const useApiStore = create<ApiStore>((set, get) => {
     return `${API_URL}/api/resumes/file/${filename}?token=${token}`;
   };
 
+  const parseResumeWithBackend = async (
+    file: File,
+  ): Promise<BackendParseResponse | null> => {
+    set({ isLoading: true, error: null });
+
+    try {
+      const formData = new FormData();
+      formData.append("resume", file);
+      formData.append("parseOnly", "true");
+
+      const response = await fetch(`${API_URL}/api/resumes/parse?parseOnly=true`, {
+        method: "POST",
+        body: formData,
+      });
+
+      const result = await safeParseResponse<BackendParseResponse>(
+        response,
+        "Failed to parse resume with backend",
+      );
+
+      if (!result.ok || !result.data) {
+        const errorMsg = result.error || "Failed to extract text from resume document";
+        setError(errorMsg);
+        return null;
+      }
+
+      set({ isLoading: false, error: null });
+      return result.data;
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Error contacting resume parsing backend";
+      setError(msg);
+      return null;
+    }
+  };
+
   return {
     isLoading: false,
     error: null,
@@ -616,6 +672,7 @@ export const useApiStore = create<ApiStore>((set, get) => {
     getFileUrl,
     getCareerGrowthAdvice,
     generateDirectCareerGrowthAdvice,
+    parseResumeWithBackend,
     clearError: () => set({ error: null }),
   };
 });

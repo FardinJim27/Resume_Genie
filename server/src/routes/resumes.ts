@@ -241,6 +241,64 @@ export async function handleParseAndAnalyzeResume(req: Request, res: Response): 
       return;
     }
 
+    // Extract basic structural heuristics (contact info & detected sections)
+    const emailMatch = extractedText.match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/);
+    const phoneMatch = extractedText.match(/(?:\+?\d{1,3}[-.\s]?)?\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}/);
+    const linkedinMatch = extractedText.match(/(?:https?:\/\/)?(?:www\.)?linkedin\.com\/in\/[a-zA-Z0-9_-]+/i);
+    const githubMatch = extractedText.match(/(?:https?:\/\/)?(?:www\.)?github\.com\/[a-zA-Z0-9_-]+/i);
+
+    const detectedContact = {
+      email: emailMatch ? emailMatch[0] : undefined,
+      phone: phoneMatch ? phoneMatch[0] : undefined,
+      linkedin: linkedinMatch ? linkedinMatch[0] : undefined,
+      github: githubMatch ? githubMatch[0] : undefined,
+    };
+
+    const sectionKeywords = [
+      "Summary",
+      "Objective",
+      "Experience",
+      "Work History",
+      "Education",
+      "Skills",
+      "Technical Skills",
+      "Projects",
+      "Certifications",
+      "Awards",
+      "Publications",
+    ];
+    const detectedSections = sectionKeywords.filter((sec) =>
+      new RegExp(`\\b${sec}\\b`, "i").test(extractedText),
+    );
+
+    const wordCount = extractedText.split(/\s+/).filter(Boolean).length;
+
+    // Check if client requested parse-only (instant text extraction without waiting for full Gemini analysis)
+    const isParseOnly =
+      req.query.parseOnly === "true" ||
+      req.body.parseOnly === "true" ||
+      req.body.parseOnly === true ||
+      (req.path === "/parse" && !req.body.companyName && !req.body.jobTitle);
+
+    if (isParseOnly) {
+      console.log(
+        `[parse-resume] Successfully parsed ${file.name}: ${pageCount} pages, ${wordCount} words, ${extractedText.length} chars`,
+      );
+      res.status(200).json({
+        success: true,
+        fileName: file.name,
+        fileSize: file.size,
+        pageCount,
+        charCount: extractedText.length,
+        wordCount,
+        extractedText,
+        cleanText: extractedText,
+        detectedContact,
+        detectedSections,
+      });
+      return;
+    }
+
     const jobTitle = req.body.jobTitle || "Software Engineer";
     const companyName = req.body.companyName || "Target Company";
     const jobDescription =
@@ -254,9 +312,14 @@ export async function handleParseAndAnalyzeResume(req: Request, res: Response): 
     res.status(200).json({
       success: true,
       fileName: file.name,
+      fileSize: file.size,
       charCount: extractedText.length,
+      wordCount,
       pageCount,
       extractedText,
+      cleanText: extractedText,
+      detectedContact,
+      detectedSections,
       feedback,
     });
   } catch (error: any) {

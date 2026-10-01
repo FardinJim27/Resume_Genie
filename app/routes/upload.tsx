@@ -6,6 +6,7 @@ import { useNavigate } from "react-router";
 import { convertPdfToImage, convertPdfToThumbnail } from "~/lib/pdf2img";
 import { validateFileIntegrity } from "~/lib/fileValidation";
 import type { ParsedResumeData } from "~/lib/resumeParser";
+import type { BackendParseResponse } from "~/lib/api";
 import Swal from "sweetalert2";
 
 const Upload = () => {
@@ -14,7 +15,7 @@ const Upload = () => {
   const [isProcessing, setIsProcessing] = useState(false);
   const [statusText, setStatusText] = useState("");
   const [file, setFile] = useState<File | null>(null);
-  const [parsedData, setParsedData] = useState<ParsedResumeData | null>(null);
+  const [parsedData, setParsedData] = useState<(BackendParseResponse & Partial<ParsedResumeData>) | null>(null);
 
   const handleFileSelect = (selectedFile: File | null) => {
     setFile(selectedFile);
@@ -23,7 +24,10 @@ const Upload = () => {
     }
   };
 
-  const handleParsed = (data: ParsedResumeData | null, selectedFile: File | null) => {
+  const handleParsed = (
+    data: (BackendParseResponse & Partial<ParsedResumeData>) | null,
+    selectedFile: File | null,
+  ) => {
     setParsedData(data);
     if (selectedFile) {
       setFile(selectedFile);
@@ -76,7 +80,7 @@ const Upload = () => {
       jobTitle,
       jobDescription,
       thumbnailDataUrl || undefined,
-      parsedData?.cleanText || undefined,
+      parsedData?.cleanText || parsedData?.extractedText || undefined,
     );
 
     if (!resumeId) {
