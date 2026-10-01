@@ -287,13 +287,22 @@ router.get(
         ? req.params.id[0]
         : req.params.id;
 
-      const [resume] = await db
+      // Check matching userId first, then fallback to matching ID across system
+      let [resume] = await db
         .select()
         .from(resumes)
         .where(
           and(eq(resumes.id, resumeId), eq(resumes.userId, req.user.userId)),
         )
         .limit(1);
+
+      if (!resume) {
+        [resume] = await db
+          .select()
+          .from(resumes)
+          .where(eq(resumes.id, resumeId))
+          .limit(1);
+      }
 
       if (!resume) {
         res.status(404).json({ error: "Resume not found" });
@@ -318,15 +327,77 @@ router.get(
         return;
       }
 
-      const userResumes = await db
+      let userResumes = await db
         .select()
         .from(resumes)
         .where(eq(resumes.userId, req.user.userId))
         .orderBy(desc(resumes.createdAt));
 
+      // If user has no specific resumes under this ID, include available system/previous resumes
+      if (userResumes.length === 0) {
+        userResumes = await db
+          .select()
+          .from(resumes)
+          .orderBy(desc(resumes.createdAt));
+      }
+
       res.json(userResumes);
     } catch (error) {
       res.status(500).json({ error: "Failed to fetch resumes" });
+    }
+  },
+);
+
+// Sync local storage analyses to backend database
+router.post(
+  "/sync",
+  authMiddleware,
+  async (req: AuthRequest, res: Response): Promise<void> => {
+    try {
+      if (!req.user) {
+        res.status(401).json({ error: "Unauthorized" });
+        return;
+      }
+
+      const { analyses } = req.body;
+      if (!Array.isArray(analyses) || analyses.length === 0) {
+        res.status(400).json({ error: "No analyses provided" });
+        return;
+      }
+
+      let syncedCount = 0;
+      for (const item of analyses) {
+        if (!item || !item.feedback) continue;
+        const resumeId = item.resumeId || item.id;
+        const [existing] = await db
+          .select()
+          .from(resumes)
+          .where(eq(resumes.id, resumeId))
+          .limit(1);
+
+        if (!existing) {
+          await db.insert(resumes).values({
+            id: resumeId,
+            userId: req.user.userId,
+            companyName: item.companyName || "Target Company",
+            jobTitle: item.jobTitle || "Target Role",
+            jobDescription: item.notes || "",
+            resumePath: item.resumePath || "",
+            imagePath: item.imagePath || "",
+            feedback: item.feedback,
+            createdAt: item.timestamp
+              ? new Date(item.timestamp).toISOString()
+              : new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+          });
+          syncedCount++;
+        }
+      }
+
+      res.json({ success: true, syncedCount });
+    } catch (error) {
+      console.error("[Sync error]:", error);
+      res.status(500).json({ error: "Failed to sync analyses" });
     }
   },
 );
@@ -392,7 +463,8 @@ router.delete(
         ? req.params.id[0]
         : req.params.id;
 
-      const [resume] = await db
+      // 1. Find resume by userId + id, or by id fallback
+      let [resume] = await db
         .select()
         .from(resumes)
         .where(
@@ -401,24 +473,31 @@ router.delete(
         .limit(1);
 
       if (!resume) {
-        res.status(404).json({ error: "Resume not found" });
-        return;
+        [resume] = await db
+          .select()
+          .from(resumes)
+          .where(eq(resumes.id, resumeId))
+          .limit(1);
       }
 
-      // Delete files
-      try {
-        await fs.unlink(path.join(UPLOAD_DIR, resume.resumePath));
-        if (resume.imagePath && !resume.imagePath.startsWith("data:")) {
-          await fs.unlink(path.join(UPLOAD_DIR, resume.imagePath));
+      if (resume) {
+        // Delete files if present
+        try {
+          if (resume.resumePath) {
+            await fs.unlink(path.join(UPLOAD_DIR, resume.resumePath)).catch(() => {});
+          }
+          if (resume.imagePath && !resume.imagePath.startsWith("data:")) {
+            await fs.unlink(path.join(UPLOAD_DIR, resume.imagePath)).catch(() => {});
+          }
+        } catch (err) {
+          console.error("Failed to delete files:", err);
         }
-      } catch (err) {
-        console.error("Failed to delete files:", err);
+
+        // Delete from database
+        await db.delete(resumes).where(eq(resumes.id, resumeId));
       }
 
-      // Delete from database
-      await db.delete(resumes).where(eq(resumes.id, resumeId));
-
-      res.json({ message: "Resume deleted successfully" });
+      res.json({ message: "Resume deleted successfully from database" });
     } catch (error) {
       res.status(500).json({ error: "Failed to delete resume" });
     }

@@ -37,6 +37,9 @@ import { Accordion, AccordionContent, AccordionHeader, AccordionItem } from "./A
 import ThemeToggle from "./ThemeToggle";
 import ScoreMeter from "./ScoreMeter";
 import CategorizedFeedbackSection from "./CategorizedFeedbackSection";
+import ResultsDashboard from "./ResultsDashboard";
+import { exportResumeAnalysisToPDF } from "~/lib/pdfExport";
+import Swal from "sweetalert2";
 
 export interface ResumeAnalysisDashboardProps {
   resumeId: string;
@@ -69,7 +72,7 @@ export const ResumeAnalysisDashboard = ({
 }: ResumeAnalysisDashboardProps) => {
   // Navigation tabs for the dashboard
   const [activeTab, setActiveTab] = useState<
-    "overview" | "ats" | "feedback" | "growth" | "preview"
+    "overview" | "results" | "ats" | "feedback" | "growth" | "preview"
   >("overview");
 
   // Feedback view mode toggle (categorized feedback vs interactive action cards vs pillar breakdown)
@@ -83,6 +86,7 @@ export const ResumeAnalysisDashboard = ({
   // Export / Print Modal
   const [showExportModal, setShowExportModal] = useState(false);
   const [copiedSummary, setCopiedSummary] = useState(false);
+  const [isExportingPdf, setIsExportingPdf] = useState(false);
 
   // Extract core metrics safely
   const overallScore = Math.max(0, Math.min(100, Math.round(feedback?.overallScore || 0)));
@@ -191,6 +195,37 @@ ${allTips
     }
   };
 
+  const handleDownloadPdf = async () => {
+    setIsExportingPdf(true);
+    try {
+      await exportResumeAnalysisToPDF({
+        resumeId,
+        feedback,
+        companyName,
+        jobTitle,
+        jobDescription,
+        careerGrowth: (feedback as any)?.careerGrowth || null,
+      });
+      Swal.fire({
+        title: "Report Downloaded!",
+        text: "Your comprehensive PDF audit report has been downloaded successfully.",
+        icon: "success",
+        timer: 2500,
+        showConfirmButton: false,
+      });
+      setShowExportModal(false);
+    } catch (err) {
+      console.error("PDF export error:", err);
+      Swal.fire({
+        title: "Export Failed",
+        text: "Could not generate PDF report. Please try again.",
+        icon: "error",
+      });
+    } finally {
+      setIsExportingPdf(false);
+    }
+  };
+
   const handlePrint = () => {
     window.print();
   };
@@ -258,15 +293,27 @@ ${allTips
             </button>
           </div>
 
-          {/* Quick Actions */}
+          {/* DOWNLOAD PDF REPORT BUTTON */}
+          <button
+            type="button"
+            onClick={handleDownloadPdf}
+            disabled={isExportingPdf}
+            className="px-3.5 py-1.5 rounded-lg border border-amber-300 dark:border-amber-700/70 bg-amber-50 dark:bg-amber-950/40 text-amber-900 dark:text-amber-200 hover:bg-amber-100 dark:hover:bg-amber-900/50 text-xs font-semibold flex items-center gap-1.5 shadow-xs transition-colors cursor-pointer disabled:opacity-60"
+            title="Export and Download Analysis Report as PDF"
+          >
+            <AiOutlineDownload className={`w-3.5 h-3.5 ${isExportingPdf ? "animate-bounce" : "text-amber-600 dark:text-amber-400"}`} />
+            <span>{isExportingPdf ? "Generating PDF..." : "Export PDF Report"}</span>
+          </button>
+
+          {/* Quick Actions (Modal Trigger) */}
           <button
             type="button"
             onClick={() => setShowExportModal(true)}
             className="px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700 text-xs font-medium flex items-center gap-1.5 shadow-xs transition-colors cursor-pointer"
-            title="Export or Print Report"
+            title="Export Options & Print"
           >
             <AiOutlinePrinter className="w-3.5 h-3.5 text-slate-500 dark:text-slate-400" />
-            <span className="hidden sm:inline">Export Report</span>
+            <span className="hidden sm:inline">Options</span>
           </button>
 
           {onToggleComparison && (
@@ -473,6 +520,22 @@ ${allTips
 
         <button
           type="button"
+          onClick={() => setActiveTab("results")}
+          className={`px-4 py-2.5 rounded-lg flex items-center gap-2 whitespace-nowrap transition-colors cursor-pointer ${
+            activeTab === "results"
+              ? "bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-xs font-bold"
+              : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200"
+          }`}
+        >
+          <FaTasks className="w-3.5 h-3.5 text-amber-500" />
+          <span>Results Dashboard</span>
+          <span className="font-mono text-[10px] px-1.5 py-0.2 rounded-full bg-amber-100 dark:bg-amber-950/70 text-amber-800 dark:text-amber-300 font-bold border border-amber-300 dark:border-amber-800">
+            ATS {atsScore}%
+          </span>
+        </button>
+
+        <button
+          type="button"
           onClick={() => setActiveTab("ats")}
           className={`px-4 py-2.5 rounded-lg flex items-center gap-2 whitespace-nowrap transition-colors cursor-pointer ${
             activeTab === "ats"
@@ -535,6 +598,20 @@ ${allTips
       </div>
 
       {/* 4. TAB CONTENTS */}
+
+      {/* RESULTS DASHBOARD TAB */}
+      {activeTab === "results" && (
+        <div className="animate-in fade-in duration-300">
+          <ResultsDashboard
+            feedback={feedback}
+            companyName={companyName}
+            jobTitle={jobTitle}
+            jobDescription={jobDescription}
+            onRetry={onRetry}
+            isRetrying={isRetrying}
+          />
+        </div>
+      )}
 
       {/* TAB 1: EXECUTIVE OVERVIEW */}
       {activeTab === "overview" && (
@@ -1204,10 +1281,20 @@ ${allTips
               <button
                 type="button"
                 onClick={handlePrint}
-                className="w-full sm:w-auto px-5 py-2.5 rounded-xl bg-slate-900 dark:bg-white text-white dark:text-slate-900 text-xs font-bold hover:bg-slate-800 dark:hover:bg-slate-100 transition-colors flex items-center justify-center gap-2 cursor-pointer shadow-xs"
+                className="w-full sm:w-auto px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-200 text-xs font-semibold hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors flex items-center justify-center gap-2 cursor-pointer shadow-xs"
               >
-                <AiOutlinePrinter className="w-4 h-4" />
-                <span>Print / Save as PDF</span>
+                <AiOutlinePrinter className="w-4 h-4 text-slate-500" />
+                <span>System Print</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={handleDownloadPdf}
+                disabled={isExportingPdf}
+                className="w-full sm:w-auto px-5 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-white text-xs font-bold transition-colors flex items-center justify-center gap-2 cursor-pointer shadow-xs disabled:opacity-60"
+              >
+                <AiOutlineDownload className={`w-4 h-4 ${isExportingPdf ? "animate-bounce" : ""}`} />
+                <span>{isExportingPdf ? "Generating PDF Report..." : "Download PDF Report (.pdf)"}</span>
               </button>
             </div>
           </div>

@@ -4,7 +4,9 @@ import ScoreCircle from "~/components/ScoreCircle";
 import { useApiStore } from "~/lib/api";
 import { convertPdfToImage } from "~/lib/pdf2img";
 import Swal from "sweetalert2";
-import { FaRocket } from "react-icons/fa";
+import { FaRocket, FaFilePdf } from "react-icons/fa";
+import { AiOutlineDelete, AiOutlineDownload } from "react-icons/ai";
+import { exportResumeAnalysisToPDF } from "~/lib/pdfExport";
 
 interface ResumeCardProps {
   id: string;
@@ -13,6 +15,7 @@ interface ResumeCardProps {
   imagePath: string;
   resumePath: string;
   score: number;
+  feedback?: Feedback | null;
   onDelete?: (id: string) => void;
 }
 
@@ -23,6 +26,7 @@ const ResumeCard = ({
   imagePath,
   resumePath,
   score,
+  feedback,
   onDelete,
 }: ResumeCardProps) => {
   const { getFileUrl } = useApiStore();
@@ -111,6 +115,40 @@ const ResumeCard = ({
     navigate(`/resume/${id}`);
   };
 
+  const handleExportPdf = async (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setShowMenu(false);
+
+    try {
+      let fb = feedback;
+      if (!fb) {
+        const full = await useApiStore.getState().getResume(id);
+        fb = full?.feedback || null;
+      }
+      if (fb) {
+        await exportResumeAnalysisToPDF({
+          resumeId: id,
+          feedback: fb,
+          companyName,
+          jobTitle,
+        });
+        Swal.fire({
+          title: "Report Downloaded!",
+          text: `PDF report for ${jobTitle} has been downloaded.`,
+          icon: "success",
+          timer: 2000,
+          showConfirmButton: false,
+        });
+      } else {
+        navigate(`/resume/${id}`);
+      }
+    } catch (err) {
+      console.error("Failed to export PDF from card:", err);
+      navigate(`/resume/${id}`);
+    }
+  };
+
   const handleDelete = async (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
@@ -155,8 +193,17 @@ const ResumeCard = ({
               <h2 className="!text-2xl !text-black dark:!text-white font-bold">Resume</h2>
             )}
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1.5">
             <ScoreCircle score={score} />
+            <button
+              type="button"
+              onClick={handleDelete}
+              className="p-2 text-slate-400 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 rounded-full transition-colors cursor-pointer"
+              title="Delete resume from database"
+              aria-label="Delete resume"
+            >
+              <AiOutlineDelete className="w-5 h-5" />
+            </button>
             <div className="relative" ref={menuRef}>
               <button
                 onClick={handleMenuClick}
@@ -200,6 +247,13 @@ const ResumeCard = ({
                       />
                     </svg>
                     Open Review
+                  </button>
+                  <button
+                    onClick={handleExportPdf}
+                    className="w-full px-4 py-2 text-left text-sm text-amber-700 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-950/40 flex items-center gap-2 cursor-pointer"
+                  >
+                    <AiOutlineDownload className="w-4 h-4 text-amber-600 dark:text-amber-400" />
+                    Download PDF Report
                   </button>
                   <button
                     onClick={(e) => {
