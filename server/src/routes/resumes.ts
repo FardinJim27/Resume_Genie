@@ -4,9 +4,10 @@ import fileUpload from "express-fileupload";
 import { authMiddleware, type AuthRequest } from "../middleware/auth.js";
 import { db } from "../db/index.js";
 import { resumes } from "../db/schema.js";
-import { analyzeResume, generateCareerGrowthAdvice } from "../lib/ai.js";
+import { analyzeResume, analyzeResumeWithGemini, generateCareerGrowthAdvice } from "../lib/ai.js";
 import { convertPdfToImage } from "../lib/pdf-to-image.js";
 import { validateUploadedFile } from "../lib/file-validator.js";
+import { parsePdfBuffer, parsePdfFile } from "../lib/pdf-parser.js";
 import { eq, and, desc } from "drizzle-orm";
 import path from "path";
 import fs from "fs/promises";
@@ -35,12 +36,12 @@ router.post(
         return;
       }
 
-      if (!req.files || !req.files.resume) {
+      if (!req.files || (!req.files.resume && !req.files.file && !req.files.pdf)) {
         res.status(400).json({ error: "No resume file provided" });
         return;
       }
 
-      const resumeFile = req.files.resume as fileUpload.UploadedFile;
+      const resumeFile = (req.files.resume || req.files.file || req.files.pdf) as fileUpload.UploadedFile;
       const { companyName, jobTitle, jobDescription, extractedText } = req.body;
 
       if (!companyName || !jobTitle || !jobDescription) {
@@ -77,6 +78,22 @@ router.post(
             "The uploaded resume file failed integrity verification.",
         });
         return;
+      }
+
+      // Extract text using pdf-parse if it's a PDF and extractedText wasn't provided or is brief
+      let textToUse =
+        extractedText && typeof extractedText === "string" && extractedText.trim().length > 20
+          ? extractedText.trim()
+          : "";
+
+      if (!textToUse && isPdf) {
+        try {
+          const parsed = await parsePdfBuffer(resumeFile.data || (await fs.readFile(resumePath)));
+          textToUse = parsed.text || "";
+          console.log(`[Upload] Extracted ${textToUse.length} characters using pdf-parse`);
+        } catch (pdfErr) {
+          console.warn("[Upload] pdf-parse extraction warning:", pdfErr);
+        }
       }
 
       // Determine image storage: prefer client-sent base64 data URL (persists across restarts)
@@ -131,24 +148,128 @@ router.post(
         })
         .returning();
 
-      // Analyze resume in background (with optional extractedText)
+      // Check if synchronous analysis requested (e.g. ?sync=true or body.sync = true)
+      const isSync =
+        req.query.sync === "true" || req.body.sync === true || req.body.sync === "true";
+
+      if (isSync) {
+        console.log(`[Upload] Synchronous analysis requested for resume ${resume.id}...`);
+        const feedback = await analyzeResumeWithGemini(textToUse, jobTitle, jobDescription);
+        await db.update(resumes).set({ feedback }).where(eq(resumes.id, resume.id));
+        res.status(200).json({
+          id: resume.id,
+          message: "Resume analyzed successfully with Gemini",
+          extractedText: textToUse,
+          charCount: textToUse.length,
+          feedback,
+        });
+        return;
+      }
+
+      // Analyze resume in background (with parsed text passed directly)
       analyzeResume(
         resume.id,
         resumePath,
         jobTitle,
         jobDescription,
-        extractedText,
+        textToUse,
       ).catch((err: any) => console.error("Analysis failed:", err));
 
       res.status(201).json({
         id: resume.id,
         message: "Resume uploaded, analysis in progress",
+        extractedTextLength: textToUse.length,
       });
     } catch (error) {
       console.error("Upload error:", error);
       res.status(500).json({ error: "Failed to upload resume" });
     }
   },
+);
+
+/**
+ * Server-side file upload handler to accept and parse PDF resume files using pdf-parse,
+ * then pass the extracted text to the Gemini API for analysis.
+ */
+export async function handleParseAndAnalyzeResume(req: Request, res: Response): Promise<void> {
+  try {
+    if (!req.files) {
+      res.status(400).json({ error: "No file provided in upload" });
+      return;
+    }
+
+    const file = (req.files.resume ||
+      req.files.file ||
+      req.files.pdf ||
+      Object.values(req.files)[0]) as fileUpload.UploadedFile;
+
+    if (!file) {
+      res.status(400).json({ error: "No resume document found in request" });
+      return;
+    }
+
+    const filename = (file.name || "resume.pdf").toLowerCase();
+    const isPdf = filename.endsWith(".pdf");
+    const isDocx = filename.endsWith(".docx");
+
+    if (!isPdf && !isDocx) {
+      res.status(400).json({ error: "Please upload a valid PDF or DOCX file." });
+      return;
+    }
+
+    // 1. Accept and parse PDF file using pdf-parse library
+    let extractedText = "";
+    let pageCount = 1;
+
+    if (isPdf) {
+      const parseResult = await parsePdfBuffer(file.data);
+      extractedText = parseResult.text;
+      pageCount = parseResult.numpages || 1;
+      console.log(
+        `[parse-and-analyze] Parsed PDF (${pageCount} pages, ${extractedText.length} chars) using pdf-parse`,
+      );
+    } else {
+      const mammoth = await import("mammoth");
+      const docResult = await mammoth.default.extractRawText({ buffer: file.data });
+      extractedText = docResult?.value || "";
+    }
+
+    if (!extractedText || extractedText.trim().length === 0) {
+      res.status(422).json({
+        error: "Could not extract any readable text from the uploaded PDF document.",
+      });
+      return;
+    }
+
+    const jobTitle = req.body.jobTitle || "Software Engineer";
+    const companyName = req.body.companyName || "Target Company";
+    const jobDescription =
+      req.body.jobDescription ||
+      "Seeking a qualified candidate with relevant experience and technical skills.";
+
+    // 2. Pass the extracted text to the Gemini API for analysis
+    console.log(`[parse-and-analyze] Passing extracted text to Gemini API for analysis...`);
+    const feedback = await analyzeResumeWithGemini(extractedText, jobTitle, jobDescription);
+
+    res.status(200).json({
+      success: true,
+      fileName: file.name,
+      charCount: extractedText.length,
+      pageCount,
+      extractedText,
+      feedback,
+    });
+  } catch (error: any) {
+    console.error("[parse-and-analyze] Error:", error);
+    res.status(500).json({
+      error: error?.message || "Failed to parse resume and analyze with Gemini API",
+    });
+  }
+}
+
+router.post(
+  ["/parse-and-analyze", "/parse", "/analyze-file"],
+  handleParseAndAnalyzeResume,
 );
 
 // Get resume by ID
