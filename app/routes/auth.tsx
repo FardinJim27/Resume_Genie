@@ -10,11 +10,14 @@ export const meta: MetaFunction = () => [
 ];
 
 const Auth = () => {
-  const { isLoading, error, isAuthenticated, login, register, resetPassword } =
+  const { isLoading, isAuthenticated, login, register, resetPassword } =
     useApiStore();
   const navigate = useNavigate();
   const [isLoginMode, setIsLoginMode] = useState(true);
   const [showPassword, setShowPassword] = useState(false);
+  const [emailInput, setEmailInput] = useState("");
+  const [passwordInput, setPasswordInput] = useState("");
+  const [usernameInput, setUsernameInput] = useState("");
 
   useEffect(() => {
     if (isAuthenticated) {
@@ -26,9 +29,18 @@ const Auth = () => {
 
   const handleLogin = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    const formData = new FormData(e.currentTarget);
-    const email = formData.get("email") as string;
-    const password = formData.get("password") as string;
+    const email = emailInput.trim();
+    const password = passwordInput;
+
+    if (!email || !password) {
+      Swal.fire({
+        title: "Missing Fields",
+        text: "Please enter both email and password.",
+        icon: "warning",
+        confirmButtonColor: "#3085d6",
+      });
+      return;
+    }
 
     const success = await login(email, password);
     if (success) {
@@ -39,10 +51,11 @@ const Auth = () => {
         timer: 1500,
         showConfirmButton: false,
       });
-    } else if (error) {
+    } else {
+      const currentError = useApiStore.getState().error;
       Swal.fire({
         title: "Login Failed!",
-        text: error,
+        text: currentError || "Invalid email or password. If you don't have an account, please click 'Create Account' below.",
         icon: "error",
         confirmButtonColor: "#3085d6",
       });
@@ -51,10 +64,19 @@ const Auth = () => {
 
   const handleRegister = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    const formData = new FormData(e.currentTarget);
-    const username = formData.get("username") as string;
-    const email = formData.get("email") as string;
-    const password = formData.get("password") as string;
+    const username = usernameInput.trim();
+    const email = emailInput.trim();
+    const password = passwordInput;
+
+    if (!username || !email || !password) {
+      Swal.fire({
+        title: "Missing Fields",
+        text: "Please fill in all registration fields.",
+        icon: "warning",
+        confirmButtonColor: "#3085d6",
+      });
+      return;
+    }
 
     const success = await register(username, email, password);
     if (success) {
@@ -65,13 +87,24 @@ const Auth = () => {
         timer: 1500,
         showConfirmButton: false,
       });
-    } else if (error) {
+    } else {
+      const currentError = useApiStore.getState().error;
       Swal.fire({
         title: "Registration Failed!",
-        text: error,
+        text: currentError || "Registration failed. Please check your details.",
         icon: "error",
         confirmButtonColor: "#3085d6",
       });
+    }
+  };
+
+  const handleQuickFillDemo = (type: "demo" | "fardin") => {
+    if (type === "demo") {
+      setEmailInput("demo@resumegenie.com");
+      setPasswordInput("Password123!");
+    } else {
+      setEmailInput("fardinjim77@gmail.com");
+      setPasswordInput("Password123!");
     }
   };
 
@@ -119,10 +152,11 @@ const Auth = () => {
         icon: "success",
         confirmButtonColor: "#3085d6",
       });
-    } else if (error) {
+    } else {
+      const currentError = useApiStore.getState().error;
       Swal.fire({
         title: "Reset Failed!",
-        text: error,
+        text: currentError || "Password reset failed.",
         icon: "error",
         confirmButtonColor: "#3085d6",
       });
@@ -141,6 +175,35 @@ const Auth = () => {
             <h3 className="auth-card-title">
               {isLoginMode ? "Have an account?" : "Create an account"}
             </h3>
+
+            {/* Quick Demo Fill helper bar */}
+            {isLoginMode && (
+              <div className="mb-4 p-3 rounded-2xl bg-white/10 backdrop-blur-md border border-white/20 text-xs text-white/90 flex flex-col gap-2">
+                <div className="flex items-center justify-between">
+                  <span className="font-semibold text-white">Instant Sign In:</span>
+                  <div className="flex items-center gap-1.5">
+                    <button
+                      type="button"
+                      onClick={() => handleQuickFillDemo("fardin")}
+                      className="px-2.5 py-1 rounded-full bg-white/20 hover:bg-white/30 text-white font-medium text-[11px] transition-colors cursor-pointer"
+                    >
+                      fardinjim77
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleQuickFillDemo("demo")}
+                      className="px-2.5 py-1 rounded-full bg-white/20 hover:bg-white/30 text-white font-medium text-[11px] transition-colors cursor-pointer"
+                    >
+                      demo_user
+                    </button>
+                  </div>
+                </div>
+                <p className="text-[10px] text-white/60">
+                  Click either button to autofill credentials (default password: <span className="font-mono text-white/80">Password123!</span>)
+                </p>
+              </div>
+            )}
+
             <form
               className="auth-form"
               autoComplete="off"
@@ -152,6 +215,8 @@ const Auth = () => {
                     type="text"
                     className="auth-input"
                     name="username"
+                    value={usernameInput}
+                    onChange={(e) => setUsernameInput(e.target.value)}
                     placeholder="Username"
                     required
                   />
@@ -163,6 +228,8 @@ const Auth = () => {
                   type="email"
                   className="auth-input"
                   name="email"
+                  value={emailInput}
+                  onChange={(e) => setEmailInput(e.target.value)}
                   placeholder="Email"
                   required
                 />
@@ -173,6 +240,8 @@ const Auth = () => {
                   type={showPassword ? "text" : "password"}
                   className="auth-input auth-input-pw"
                   name="password"
+                  value={passwordInput}
+                  onChange={(e) => setPasswordInput(e.target.value)}
                   placeholder="Password"
                   required
                   minLength={8}
@@ -192,7 +261,7 @@ const Auth = () => {
                     <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                       <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94" />
                       <path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19" />
-                      <line x1="1" y1="1" x2="23" y2="23" />
+                      <line x1="1" y1="23" x2="23" y2="23" />
                     </svg>
                   ) : (
                     <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">

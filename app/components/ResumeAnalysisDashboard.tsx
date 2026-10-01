@@ -35,6 +35,8 @@ import CareerGrowthAdviceModule from "./CareerGrowthAdviceModule";
 import ResumeActionSuggestions from "./ResumeActionSuggestions";
 import { Accordion, AccordionContent, AccordionHeader, AccordionItem } from "./Accordion";
 import ThemeToggle from "./ThemeToggle";
+import ScoreMeter from "./ScoreMeter";
+import CategorizedFeedbackSection from "./CategorizedFeedbackSection";
 
 export interface ResumeAnalysisDashboardProps {
   resumeId: string;
@@ -70,8 +72,8 @@ export const ResumeAnalysisDashboard = ({
     "overview" | "ats" | "feedback" | "growth" | "preview"
   >("overview");
 
-  // Feedback view mode toggle (interactive cards vs category breakdown)
-  const [feedbackViewMode, setFeedbackViewMode] = useState<"cards" | "breakdown">("cards");
+  // Feedback view mode toggle (categorized feedback vs interactive action cards vs pillar breakdown)
+  const [feedbackViewMode, setFeedbackViewMode] = useState<"categorized" | "cards" | "breakdown">("categorized");
 
   // Quick feedback category filter inside breakdown
   const [activeCategoryTab, setActiveCategoryTab] = useState<
@@ -567,6 +569,82 @@ ${allTips
             </button>
           </div>
 
+          {/* VISUAL SCORE METER & AUDIT BENCHMARKS */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {/* Overall Score Meter Card */}
+            <div className="p-5 sm:p-6 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-xs flex flex-col justify-between">
+              <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
+                <div>
+                  <h3 className="text-base font-bold text-slate-900 dark:text-white">
+                    Overall AI Performance Meter
+                  </h3>
+                  <p className="text-xs text-slate-500 dark:text-slate-400">
+                    Weighted across all 4 evaluation pillars
+                  </p>
+                </div>
+                <span className="text-[11px] font-mono font-bold px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300">
+                  Target: 80+
+                </span>
+              </div>
+
+              <div className="py-2">
+                <ScoreMeter
+                  score={overallScore}
+                  label="Overall Score"
+                  size="md"
+                  showNeedle={true}
+                  showSubcategories={true}
+                  categories={[
+                    { name: "Tone & Style", score: toneScore },
+                    { name: "Content Impact", score: contentScore },
+                    { name: "Structure & Formatting", score: structureScore },
+                    { name: "Skills & Keywords", score: skillsScore },
+                  ]}
+                />
+              </div>
+            </div>
+
+            {/* ATS Compatibility Meter Card */}
+            <div className="p-5 sm:p-6 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-xs flex flex-col justify-between">
+              <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
+                <div>
+                  <h3 className="text-base font-bold text-slate-900 dark:text-white">
+                    ATS Compatibility Meter
+                  </h3>
+                  <p className="text-xs text-slate-500 dark:text-slate-400">
+                    Automated parser simulation & keyword density
+                  </p>
+                </div>
+                <span className="text-[11px] font-mono font-bold px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300">
+                  Pass: 70%+
+                </span>
+              </div>
+
+              <div className="py-2">
+                <ScoreMeter
+                  score={atsScore}
+                  label="ATS Score"
+                  size="md"
+                  showNeedle={true}
+                />
+              </div>
+
+              <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200/60 dark:border-slate-700/60 flex items-center justify-between text-xs">
+                <span className="font-medium text-slate-600 dark:text-slate-400">
+                  Audit Findings:
+                </span>
+                <div className="flex items-center gap-3 font-mono font-semibold">
+                  <span className="text-emerald-600 dark:text-emerald-400">
+                    ✓ {atsGoodCount} Passed
+                  </span>
+                  <span className="text-amber-600 dark:text-amber-400">
+                    ⚠ {atsImproveCount} Warnings
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
+
           {/* Visual Score Radar & Pillars Grid */}
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
             {/* Visual Radar / Dimension Chart (7 cols) */}
@@ -738,8 +816,8 @@ ${allTips
         <div className="flex flex-col gap-6 animate-in fade-in duration-300">
           {/* Detailed ATS Scanner Card */}
           <div className="p-5 sm:p-6 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-xs">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-100 dark:border-slate-800">
-              <div className="space-y-1">
+            <div className="flex flex-col md:flex-row items-center justify-between gap-6 pb-4 border-b border-slate-100 dark:border-slate-800">
+              <div className="space-y-2">
                 <h3 className="text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
                   <span>ATS Scanner Audit</span>
                   <span className={`text-xs font-semibold px-2 py-0.5 rounded-full border ${atsRating.badgeBg}`}>
@@ -749,15 +827,18 @@ ${allTips
                 <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400">
                   Simulating automated candidate filtering engines (Workday, Greenhouse, Taleo, Lever)
                 </p>
+                <div className="flex items-center gap-3 pt-1 text-xs font-mono">
+                  <span className="text-emerald-600 dark:text-emerald-400 font-semibold">
+                    ✓ {atsGoodCount} Passed Validation
+                  </span>
+                  <span className="text-amber-600 dark:text-amber-400 font-semibold">
+                    ⚠ {atsImproveCount} Parser Risks
+                  </span>
+                </div>
               </div>
 
-              <div className="flex items-center gap-3">
-                <div className="text-right">
-                  <span className="font-mono text-2xl font-extrabold tabular-nums text-slate-900 dark:text-white">
-                    {atsScore}
-                  </span>
-                  <span className="text-xs font-mono text-slate-400">/100</span>
-                </div>
+              <div className="shrink-0">
+                <ScoreMeter score={atsScore} label="ATS Score" size="sm" showNeedle={true} />
               </div>
             </div>
 
@@ -811,9 +892,22 @@ ${allTips
       {/* TAB 3: FEEDBACK & ACTION PLAN */}
       {activeTab === "feedback" && (
         <div className="flex flex-col gap-5 animate-in fade-in duration-300">
-          {/* Sub-view switcher (Interactive Action Cards vs Category Accordion) */}
+          {/* Sub-view switcher (Categorized Feedback vs Action Task Engine vs Category Accordion) */}
           <div className="flex flex-wrap items-center justify-between gap-3 p-1.5 bg-slate-100 dark:bg-slate-800/90 rounded-xl border border-slate-200/60 dark:border-slate-700/60">
             <div className="flex items-center gap-1">
+              <button
+                type="button"
+                onClick={() => setFeedbackViewMode("categorized")}
+                className={`px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer ${
+                  feedbackViewMode === "categorized"
+                    ? "bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-xs"
+                    : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200"
+                }`}
+              >
+                <FaListUl className="w-3 h-3 text-purple-600 dark:text-purple-400" />
+                <span>Categorized Findings</span>
+              </button>
+
               <button
                 type="button"
                 onClick={() => setFeedbackViewMode("cards")}
@@ -836,8 +930,8 @@ ${allTips
                     : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200"
                 }`}
               >
-                <FaListUl className="w-3 h-3 text-slate-500" />
-                <span>Pillar Breakdown</span>
+                <FaFileAlt className="w-3 h-3 text-slate-500" />
+                <span>Pillar Accordion</span>
               </button>
             </div>
 
@@ -846,7 +940,13 @@ ${allTips
             </span>
           </div>
 
-          {feedbackViewMode === "cards" ? (
+          {feedbackViewMode === "categorized" ? (
+            <CategorizedFeedbackSection
+              feedback={feedback}
+              jobTitle={jobTitle}
+              companyName={companyName}
+            />
+          ) : feedbackViewMode === "cards" ? (
             <ResumeActionSuggestions
               feedback={feedback}
               resumeId={resumeId}

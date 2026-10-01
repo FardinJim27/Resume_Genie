@@ -11,6 +11,43 @@ const getApiBaseUrl = (): string => {
 
 const API_URL = getApiBaseUrl();
 
+/**
+ * Resilient JSON parser for HTTP responses.
+ * Prevents "Failed to execute 'json' on 'Response': Unexpected end of JSON input"
+ * by safely reading response text first and checking for valid JSON.
+ */
+async function safeParseResponse<T = any>(
+  response: Response,
+  defaultErrorMessage = "Request failed",
+): Promise<{ ok: boolean; data: T | null; error?: string }> {
+  try {
+    const text = await response.text();
+    let parsed: any = null;
+
+    if (text && text.trim().length > 0) {
+      try {
+        parsed = JSON.parse(text);
+      } catch {
+        parsed = null;
+      }
+    }
+
+    if (!response.ok) {
+      const errorMsg =
+        (parsed && (parsed.error || parsed.message)) ||
+        (text && text.length < 200 && !text.includes("<!DOCTYPE")
+          ? text
+          : `${defaultErrorMessage} (Status ${response.status})`);
+      return { ok: false, data: parsed, error: errorMsg };
+    }
+
+    return { ok: true, data: parsed as T };
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : defaultErrorMessage;
+    return { ok: false, data: null, error: msg };
+  }
+}
+
 interface User {
   id: string;
   username: string;
@@ -122,20 +159,16 @@ interface ApiStore {
     jobDescription?: string;
     targetRole?: string;
   }) => Promise<CareerGrowthAdvice | null>;
-
   clearError: () => void;
 }
 
 export const useApiStore = create<ApiStore>((set, get) => {
-  // Load token from localStorage (only in browser)
-  const storedToken =
+  // Initialize auth from localStorage on browser
+  const initialToken =
     typeof window !== "undefined" ? localStorage.getItem("auth_token") : null;
-  const initialToken = storedToken || null;
-  const initialIsAuthenticated = !!storedToken;
+  const initialIsAuthenticated = !!initialToken;
 
-  const setError = (msg: string) => {
-    set({ error: msg, isLoading: false });
-  };
+  const setError = (error: string | null) => set({ error, isLoading: false });
 
   const getAuthHeaders = () => {
     const { token } = get();
@@ -152,16 +185,20 @@ export const useApiStore = create<ApiStore>((set, get) => {
       const response = await fetch(`${API_URL}/api/auth/login`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, password }),
+        body: JSON.stringify({ email: email.trim(), password }),
       });
 
-      if (!response.ok) {
-        const data = await response.json();
-        setError(data.error || "Login failed");
+      const result = await safeParseResponse<{ user: User; token: string }>(
+        response,
+        "Login failed. Please check your credentials.",
+      );
+
+      if (!result.ok || !result.data) {
+        setError(result.error || "Invalid email or password.");
         return false;
       }
 
-      const data = await response.json();
+      const data = result.data;
       if (typeof window !== "undefined") {
         localStorage.setItem("auth_token", data.token);
       }
@@ -171,11 +208,12 @@ export const useApiStore = create<ApiStore>((set, get) => {
         token: data.token,
         isAuthenticated: true,
         isLoading: false,
+        error: null,
       });
 
       return true;
     } catch (err) {
-      const msg = err instanceof Error ? err.message : "Login failed";
+      const msg = err instanceof Error ? err.message : "Unable to sign in. Please try again.";
       setError(msg);
       return false;
     }
@@ -192,16 +230,24 @@ export const useApiStore = create<ApiStore>((set, get) => {
       const response = await fetch(`${API_URL}/api/auth/register`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ username, email, password }),
+        body: JSON.stringify({
+          username: username.trim(),
+          email: email.trim(),
+          password,
+        }),
       });
 
-      if (!response.ok) {
-        const data = await response.json();
-        setError(data.error || "Registration failed");
+      const result = await safeParseResponse<{ user: User; token: string }>(
+        response,
+        "Registration failed",
+      );
+
+      if (!result.ok || !result.data) {
+        setError(result.error || "Registration failed. Please check your details.");
         return false;
       }
 
-      const data = await response.json();
+      const data = result.data;
       if (typeof window !== "undefined") {
         localStorage.setItem("auth_token", data.token);
       }
@@ -211,11 +257,12 @@ export const useApiStore = create<ApiStore>((set, get) => {
         token: data.token,
         isAuthenticated: true,
         isLoading: false,
+        error: null,
       });
 
       return true;
     } catch (err) {
-      const msg = err instanceof Error ? err.message : "Registration failed";
+      const msg = err instanceof Error ? err.message : "Registration failed. Please try again.";
       setError(msg);
       return false;
     }
@@ -229,6 +276,8 @@ export const useApiStore = create<ApiStore>((set, get) => {
       user: null,
       token: null,
       isAuthenticated: false,
+      error: null,
+      isLoading: false,
     });
   };
 
@@ -243,14 +292,15 @@ export const useApiStore = create<ApiStore>((set, get) => {
         headers: { Authorization: `Bearer ${token}` },
       });
 
-      if (!response.ok) {
+      const result = await safeParseResponse<User>(response, "Failed to authenticate session");
+
+      if (!result.ok || !result.data) {
         logout();
         return;
       }
 
-      const user = await response.json();
-      set({ user, isLoading: false });
-    } catch (err) {
+      set({ user: result.data, isLoading: false });
+    } catch {
       logout();
     }
   };
@@ -265,16 +315,17 @@ export const useApiStore = create<ApiStore>((set, get) => {
       const response = await fetch(`${API_URL}/api/auth/reset-password`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, newPassword }),
+        body: JSON.stringify({ email: email.trim(), newPassword }),
       });
 
-      if (!response.ok) {
-        const data = await response.json();
-        setError(data.error || "Password reset failed");
+      const result = await safeParseResponse(response, "Password reset failed");
+
+      if (!result.ok) {
+        setError(result.error || "Password reset failed");
         return false;
       }
 
-      set({ isLoading: false });
+      set({ isLoading: false, error: null });
       return true;
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Password reset failed";
@@ -294,7 +345,7 @@ export const useApiStore = create<ApiStore>((set, get) => {
   ): Promise<string | null> => {
     const { token } = get();
     if (!token) {
-      setError("Not authenticated");
+      setError("Please sign in before uploading a resume.");
       return null;
     }
 
@@ -304,7 +355,6 @@ export const useApiStore = create<ApiStore>((set, get) => {
       const formData = new FormData();
       formData.append("resume", file);
       if (imageDataUrl) {
-        // Preferred: send as base64 data URL to store directly in DB
         formData.append("imageData", imageDataUrl);
       } else if (imageFile) {
         formData.append("image", imageFile);
@@ -322,15 +372,15 @@ export const useApiStore = create<ApiStore>((set, get) => {
         body: formData,
       });
 
-      if (!response.ok) {
-        const data = await response.json();
-        setError(data.error || "Upload failed");
+      const result = await safeParseResponse<{ id: string }>(response, "Upload failed");
+
+      if (!result.ok || !result.data) {
+        setError(result.error || "Upload failed. Please check the resume format.");
         return null;
       }
 
-      const data = await response.json();
-      set({ isLoading: false });
-      return data.id;
+      set({ isLoading: false, error: null });
+      return result.data.id;
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Upload failed";
       setError(msg);
@@ -352,15 +402,15 @@ export const useApiStore = create<ApiStore>((set, get) => {
         headers: { Authorization: `Bearer ${token}` },
       });
 
-      if (!response.ok) {
-        const data = await response.json();
-        setError(data.error || "Failed to fetch resume");
+      const result = await safeParseResponse<Resume>(response, "Failed to fetch resume");
+
+      if (!result.ok || !result.data) {
+        setError(result.error || "Failed to fetch resume");
         return null;
       }
 
-      const resume = await response.json();
-      set({ isLoading: false });
-      return resume;
+      set({ isLoading: false, error: null });
+      return result.data;
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Failed to fetch resume";
       setError(msg);
@@ -386,15 +436,15 @@ export const useApiStore = create<ApiStore>((set, get) => {
         },
       });
 
-      if (!response.ok) {
-        const data = await response.json();
-        setError(data.error || "Failed to reanalyze resume");
+      const result = await safeParseResponse<{ resume: Resume }>(response, "Failed to reanalyze resume");
+
+      if (!result.ok || !result.data) {
+        setError(result.error || "Failed to reanalyze resume");
         return null;
       }
 
-      const data = await response.json();
-      set({ isLoading: false });
-      return data.resume;
+      set({ isLoading: false, error: null });
+      return result.data.resume;
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Failed to reanalyze resume";
       setError(msg);
@@ -416,18 +466,17 @@ export const useApiStore = create<ApiStore>((set, get) => {
         headers: { Authorization: `Bearer ${token}` },
       });
 
-      if (!response.ok) {
-        const data = await response.json();
-        setError(data.error || "Failed to fetch resumes");
+      const result = await safeParseResponse<Resume[]>(response, "Failed to fetch resumes");
+
+      if (!result.ok || !result.data) {
+        setError(result.error || "Failed to fetch resumes");
         return [];
       }
 
-      const resumes = await response.json();
-      set({ isLoading: false });
-      return resumes;
+      set({ isLoading: false, error: null });
+      return result.data;
     } catch (err) {
-      const msg =
-        err instanceof Error ? err.message : "Failed to fetch resumes";
+      const msg = err instanceof Error ? err.message : "Failed to fetch resumes";
       setError(msg);
       return [];
     }
@@ -448,17 +497,17 @@ export const useApiStore = create<ApiStore>((set, get) => {
         headers: { Authorization: `Bearer ${token}` },
       });
 
-      if (!response.ok) {
-        const data = await response.json();
-        setError(data.error || "Failed to delete resume");
+      const result = await safeParseResponse(response, "Failed to delete resume");
+
+      if (!result.ok) {
+        setError(result.error || "Failed to delete resume");
         return false;
       }
 
-      set({ isLoading: false });
+      set({ isLoading: false, error: null });
       return true;
     } catch (err) {
-      const msg =
-        err instanceof Error ? err.message : "Failed to delete resume";
+      const msg = err instanceof Error ? err.message : "Failed to delete resume";
       setError(msg);
       return false;
     }
@@ -487,19 +536,19 @@ export const useApiStore = create<ApiStore>((set, get) => {
         },
       );
 
-      if (!response.ok) {
-        const data = await response.json();
-        setError(data.error || "Failed to load career growth advice");
+      const result = await safeParseResponse<{ careerGrowth: CareerGrowthAdvice }>(
+        response,
+        "Failed to load career growth advice",
+      );
+
+      if (!result.ok || !result.data) {
+        setError(result.error || "Failed to load career growth advice");
         return null;
       }
 
-      const result = await response.json();
-      return result.careerGrowth || null;
+      return result.data.careerGrowth || null;
     } catch (err) {
-      const msg =
-        err instanceof Error
-          ? err.message
-          : "Failed to load career growth advice";
+      const msg = err instanceof Error ? err.message : "Failed to load career growth advice";
       setError(msg);
       return null;
     }
@@ -523,19 +572,19 @@ export const useApiStore = create<ApiStore>((set, get) => {
         },
       );
 
-      if (!response.ok) {
-        const data = await response.json();
-        setError(data.error || "Failed to generate career growth advice");
+      const result = await safeParseResponse<{ careerGrowth: CareerGrowthAdvice }>(
+        response,
+        "Failed to generate career growth advice",
+      );
+
+      if (!result.ok || !result.data) {
+        setError(result.error || "Failed to generate career growth advice");
         return null;
       }
 
-      const result = await response.json();
-      return result.careerGrowth || null;
+      return result.data.careerGrowth || null;
     } catch (err) {
-      const msg =
-        err instanceof Error
-          ? err.message
-          : "Failed to generate career growth advice";
+      const msg = err instanceof Error ? err.message : "Failed to generate career growth advice";
       setError(msg);
       return null;
     }
@@ -543,7 +592,6 @@ export const useApiStore = create<ApiStore>((set, get) => {
 
   const getFileUrl = (filename: string): string => {
     if (!filename) return "";
-    // If it's already a data URL (base64 stored in DB), return as-is
     if (filename.startsWith("data:")) return filename;
     const { token } = get();
     return `${API_URL}/api/resumes/file/${filename}?token=${token}`;
