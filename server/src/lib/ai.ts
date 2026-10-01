@@ -4,6 +4,7 @@ import { db } from "../db/index.js";
 import { resumes } from "../db/schema.js";
 import { eq } from "drizzle-orm";
 import fs from "fs/promises";
+import { parsePdfFile, parsePdfBuffer } from "./pdf-parser.js";
 
 const GROQ_MODELS = {
   primary: process.env.GROQ_PRIMARY_MODEL || "llama-3.3-70b-versatile",
@@ -187,53 +188,20 @@ function generateFallbackFeedback(jobTitle: string, resumeText: string) {
   };
 }
 
-async function extractPdfText(resumePath: string): Promise<string> {
+export async function extractPdfText(resumePath: string): Promise<string> {
   try {
     if (!resumePath || typeof resumePath !== "string") {
       return "";
     }
-
-    const pdfData = await fs.readFile(resumePath);
-    if (!pdfData || pdfData.length === 0) {
-      return "";
-    }
-    const uint8Array = new Uint8Array(pdfData);
-
-    const pdfjsLib = await import("pdfjs-dist/legacy/build/pdf.mjs");
-    const loadingTask = pdfjsLib.getDocument({ data: uint8Array });
-    const pdfDocument = await loadingTask.promise;
-
-    if (!pdfDocument || typeof pdfDocument.numPages !== "number" || pdfDocument.numPages <= 0) {
-      return "";
-    }
-
-    let resumeText = "";
-    for (let pageNum = 1; pageNum <= pdfDocument.numPages; pageNum++) {
-      const page = await pdfDocument.getPage(pageNum);
-      if (!page) continue;
-
-      const textContent = await page.getTextContent();
-      if (!textContent || !Array.isArray(textContent.items)) continue;
-
-      const pageText = textContent.items
-        .filter((item: any) => item != null && typeof item.str === "string")
-        .map((item: any) => item.str)
-        .join(" ")
-        .replace(/\s+/g, " ")
-        .trim();
-
-      if (pageText) {
-        resumeText += pageText + " ";
-      }
-    }
-    return resumeText.trim();
+    const parsed = await parsePdfFile(resumePath);
+    return parsed.text ? parsed.text.trim() : "";
   } catch (err) {
     console.warn("[AI] PDF text extraction warning:", err);
     return "";
   }
 }
 
-async function extractResumeText(filePath: string): Promise<string> {
+export async function extractResumeText(filePath: string): Promise<string> {
   if (!filePath || typeof filePath !== "string") return "";
   try {
     const stat = await fs.stat(filePath).catch(() => null);
@@ -262,6 +230,102 @@ async function extractResumeText(filePath: string): Promise<string> {
   }
 }
 
+/**
+ * Analyzes resume text directly with Gemini API (gemini-3.8-flash)
+ * using the modern @google/genai SDK, returning structured ATS and section feedback.
+ */
+export async function analyzeResumeWithGemini(
+  resumeText: string,
+  jobTitle: string = "Target Role",
+  jobDescription: string = "Standard job description",
+): Promise<any> {
+  let feedback: any = null;
+
+  // 1. Try Gemini API first if valid GEMINI_API_KEY is available
+  if (isValidApiKey(process.env.GEMINI_API_KEY)) {
+    try {
+      console.log(`[AI] Using Gemini API (gemini-3.8-flash) for resume analysis...`);
+      const ai = new GoogleGenAI({
+        apiKey: process.env.GEMINI_API_KEY,
+        httpOptions: {
+          headers: {
+            "User-Agent": "aistudio-build",
+          },
+        },
+      });
+      const prompt = `Here is a resume:\n\n${resumeText || "Resume document uploaded for evaluation."}\n\n${preparePrompt(jobTitle, jobDescription)}`;
+
+      const response = await ai.models.generateContent({
+        model: "gemini-3.8-flash",
+        contents: prompt,
+        config: {
+          responseMimeType: "application/json",
+        },
+      });
+
+      const text = response.text || "";
+      let jsonText = text.trim();
+      if (jsonText.startsWith("```json")) {
+        jsonText = jsonText.replace(/^```json\s*/, "").replace(/\s*```$/, "");
+      } else if (jsonText.startsWith("```")) {
+        jsonText = jsonText.replace(/^```\s*/, "").replace(/\s*```$/, "");
+      }
+      feedback = JSON.parse(jsonText);
+      console.log("[AI] Successfully received analysis from Gemini API");
+    } catch (geminiError) {
+      console.warn("[AI] Gemini API failed, checking alternatives:", geminiError);
+    }
+  }
+
+  // 2. Try Groq API with multi-model fallback if valid GROQ_API_KEY is available
+  if (!feedback && isValidApiKey(process.env.GROQ_API_KEY)) {
+    const groqCandidates = [
+      GROQ_MODELS.primary,
+      GROQ_MODELS.secondary,
+      GROQ_MODELS.tertiary,
+    ];
+
+    for (const groqModel of groqCandidates) {
+      try {
+        console.log(`[AI] Attempting Groq analysis with model: ${groqModel}...`);
+        const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
+        const completion = await groq.chat.completions.create({
+          model: groqModel,
+          messages: [
+            {
+              role: "user",
+              content: `Here is a resume:\n\n${resumeText || "Resume document uploaded for evaluation."}\n\n${preparePrompt(jobTitle, jobDescription)}`,
+            },
+          ],
+          temperature: 0.5,
+          max_tokens: 8000,
+        });
+
+        const text = completion.choices[0]?.message?.content || "";
+        let jsonText = text.trim();
+        if (jsonText.startsWith("```json")) {
+          jsonText = jsonText.replace(/^```json\s*/, "").replace(/\s*```$/, "");
+        } else if (jsonText.startsWith("```")) {
+          jsonText = jsonText.replace(/^```\s*/, "").replace(/\s*```$/, "");
+        }
+        feedback = JSON.parse(jsonText);
+        console.log(`[AI] Successfully received analysis from Groq model: ${groqModel}`);
+        break;
+      } catch (groqError) {
+        console.warn(`[AI] Groq model ${groqModel} failed:`, groqError);
+      }
+    }
+  }
+
+  // 3. Fallback to built-in structured analysis heuristic (guaranteed completion)
+  if (!feedback) {
+    console.log("[AI] Generating domain-informed heuristic analysis...");
+    feedback = generateFallbackFeedback(jobTitle, resumeText);
+  }
+
+  return feedback;
+}
+
 export const analyzeResume = async (
   resumeId: string,
   resumePath: string,
@@ -277,89 +341,7 @@ export const analyzeResume = async (
     }
     console.log(`[AI] Processed ${resumeText.length} characters of resume text`);
 
-    let feedback: any = null;
-
-    // 1. Try Gemini API first if valid GEMINI_API_KEY is available
-    if (isValidApiKey(process.env.GEMINI_API_KEY)) {
-      try {
-        console.log(`[AI] Using Gemini API for analysis...`);
-        const ai = new GoogleGenAI({
-          apiKey: process.env.GEMINI_API_KEY,
-          httpOptions: {
-            headers: {
-              "User-Agent": "aistudio-build",
-            },
-          },
-        });
-        const prompt = `Here is a resume:\n\n${resumeText || "Resume document uploaded for evaluation."}\n\n${preparePrompt(jobTitle, jobDescription)}`;
-
-        const response = await ai.models.generateContent({
-          model: "gemini-3.8-flash",
-          contents: prompt,
-          config: {
-            responseMimeType: "application/json",
-          },
-        });
-
-        const text = response.text || "";
-        let jsonText = text.trim();
-        if (jsonText.startsWith("```json")) {
-          jsonText = jsonText.replace(/^```json\s*/, "").replace(/\s*```$/, "");
-        } else if (jsonText.startsWith("```")) {
-          jsonText = jsonText.replace(/^```\s*/, "").replace(/\s*```$/, "");
-        }
-        feedback = JSON.parse(jsonText);
-        console.log("[AI] Successfully received analysis from Gemini API");
-      } catch (geminiError) {
-        console.warn("[AI] Gemini API failed, checking alternatives:", geminiError);
-      }
-    }
-
-    // 2. Try Groq API with multi-model fallback if valid GROQ_API_KEY is available
-    if (!feedback && isValidApiKey(process.env.GROQ_API_KEY)) {
-      const groqCandidates = [
-        GROQ_MODELS.primary,
-        GROQ_MODELS.secondary,
-        GROQ_MODELS.tertiary,
-      ];
-
-      for (const groqModel of groqCandidates) {
-        try {
-          console.log(`[AI] Attempting Groq analysis with model: ${groqModel}...`);
-          const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
-          const completion = await groq.chat.completions.create({
-            model: groqModel,
-            messages: [
-              {
-                role: "user",
-                content: `Here is a resume:\n\n${resumeText || "Resume document uploaded for evaluation."}\n\n${preparePrompt(jobTitle, jobDescription)}`,
-              },
-            ],
-            temperature: 0.5,
-            max_tokens: 8000,
-          });
-
-          const text = completion.choices[0]?.message?.content || "";
-          let jsonText = text.trim();
-          if (jsonText.startsWith("```json")) {
-            jsonText = jsonText.replace(/^```json\s*/, "").replace(/\s*```$/, "");
-          } else if (jsonText.startsWith("```")) {
-            jsonText = jsonText.replace(/^```\s*/, "").replace(/\s*```$/, "");
-          }
-          feedback = JSON.parse(jsonText);
-          console.log(`[AI] Successfully received analysis from Groq model: ${groqModel}`);
-          break;
-        } catch (groqError) {
-          console.warn(`[AI] Groq model ${groqModel} failed:`, groqError);
-        }
-      }
-    }
-
-    // 3. Fallback to built-in structured analysis heuristic (guaranteed completion)
-    if (!feedback) {
-      console.log("[AI] Generating domain-informed heuristic analysis...");
-      feedback = generateFallbackFeedback(jobTitle, resumeText);
-    }
+    const feedback = await analyzeResumeWithGemini(resumeText, jobTitle, jobDescription);
 
     // Update database with feedback
     await db.update(resumes).set({ feedback }).where(eq(resumes.id, resumeId));

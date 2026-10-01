@@ -6,7 +6,7 @@ import path from "path";
 import fs from "fs";
 import { fileURLToPath } from "url";
 import authRoutes from "./server/src/routes/auth.js";
-import resumeRoutes from "./server/src/routes/resumes.js";
+import resumeRoutes, { handleParseAndAnalyzeResume } from "./server/src/routes/resumes.js";
 import adminRoutes from "./server/src/routes/admin.js";
 
 dotenv.config();
@@ -15,7 +15,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const app = express();
-const PORT = 3005;
+const PORT = process.env.PORT ? parseInt(process.env.PORT) : 3000;
 const HOST = "0.0.0.0";
 
 // Ensure uploads directory exists
@@ -41,6 +41,10 @@ app.use(
 app.use("/api/auth", authRoutes);
 app.use("/api/resumes", resumeRoutes);
 app.use("/api/admin", adminRoutes);
+
+// Direct file upload and analysis endpoint aliases
+app.post("/api/upload", handleParseAndAnalyzeResume);
+app.post("/api/parse-resume", handleParseAndAnalyzeResume);
 
 // Health check
 app.get("/health", (req, res) => {
