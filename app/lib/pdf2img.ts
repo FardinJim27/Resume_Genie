@@ -1,4 +1,5 @@
 import pdfjsWorkerUrl from "pdfjs-dist/build/pdf.worker.min.mjs?url";
+import { validateFileIntegrity } from "./fileValidation";
 
 export interface PdfConversionResult {
   imageUrl: string;
@@ -27,25 +28,70 @@ export async function convertPdfToImage(
   file: File,
 ): Promise<PdfConversionResult> {
   try {
-    const lib = await loadPdfJs();
+    if (!file) {
+      return {
+        imageUrl: "",
+        file: null,
+        error: "No file provided for PDF image conversion.",
+      };
+    }
 
+    // Validate file integrity before invoking PDF.js renderer
+    const validation = await validateFileIntegrity(file);
+    if (!validation.isValid) {
+      return {
+        imageUrl: "",
+        file: null,
+        error: validation.error || "File failed PDF integrity validation.",
+      };
+    }
+
+    const lib = await loadPdfJs();
     const arrayBuffer = await file.arrayBuffer();
+    if (!arrayBuffer || arrayBuffer.byteLength === 0) {
+      return {
+        imageUrl: "",
+        file: null,
+        error: "PDF file is empty or could not be read.",
+      };
+    }
+
     const pdf = await lib.getDocument({ data: arrayBuffer }).promise;
+    if (!pdf || typeof pdf.numPages !== "number" || pdf.numPages <= 0) {
+      return {
+        imageUrl: "",
+        file: null,
+        error: "PDF contains no renderable pages.",
+      };
+    }
+
     const page = await pdf.getPage(1);
+    if (!page) {
+      return {
+        imageUrl: "",
+        file: null,
+        error: "Unable to retrieve the first page of the PDF.",
+      };
+    }
 
     const viewport = page.getViewport({ scale: 2 });
     const canvas = document.createElement("canvas");
     const context = canvas.getContext("2d");
 
-    canvas.width = viewport.width;
-    canvas.height = viewport.height;
-
-    if (context) {
-      context.imageSmoothingEnabled = true;
-      context.imageSmoothingQuality = "high";
+    if (!context) {
+      return {
+        imageUrl: "",
+        file: null,
+        error: "Canvas 2D context is not supported in this environment.",
+      };
     }
 
-    await page.render({ canvasContext: context!, viewport }).promise;
+    canvas.width = viewport.width;
+    canvas.height = viewport.height;
+    context.imageSmoothingEnabled = true;
+    context.imageSmoothingQuality = "high";
+
+    await page.render({ canvasContext: context, viewport }).promise;
 
     return new Promise((resolve) => {
       canvas.toBlob(
@@ -65,19 +111,19 @@ export async function convertPdfToImage(
             resolve({
               imageUrl: "",
               file: null,
-              error: "Failed to create image blob",
+              error: "Failed to create image blob from canvas.",
             });
           }
         },
         "image/png",
         1.0,
-      ); // Set quality to maximum (1.0)
+      );
     });
   } catch (err) {
     return {
       imageUrl: "",
       file: null,
-      error: `Failed to convert PDF: ${err}`,
+      error: `Failed to convert PDF: ${err instanceof Error ? err.message : String(err)}`,
     };
   }
 }
@@ -88,16 +134,28 @@ export async function convertPdfToImage(
  */
 export async function convertPdfToThumbnail(file: File): Promise<string> {
   try {
+    if (!file) return "";
+    const validation = await validateFileIntegrity(file);
+    if (!validation.isValid) return "";
+
     const lib = await loadPdfJs();
     const arrayBuffer = await file.arrayBuffer();
+    if (!arrayBuffer || arrayBuffer.byteLength === 0) return "";
+
     const pdf = await lib.getDocument({ data: arrayBuffer }).promise;
+    if (!pdf || typeof pdf.numPages !== "number" || pdf.numPages <= 0) return "";
+
     const page = await pdf.getPage(1);
+    if (!page) return "";
+
     const viewport = page.getViewport({ scale: 1.5 });
     const canvas = document.createElement("canvas");
     const context = canvas.getContext("2d");
+    if (!context) return "";
+
     canvas.width = viewport.width;
     canvas.height = viewport.height;
-    await page.render({ canvasContext: context!, viewport }).promise;
+    await page.render({ canvasContext: context, viewport }).promise;
     return canvas.toDataURL("image/jpeg", 0.85);
   } catch {
     return "";

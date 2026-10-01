@@ -4,6 +4,7 @@ import {
   parseResumeFile,
   type ParsedResumeData,
 } from "../lib/resumeParser";
+import { validateFileIntegrity } from "../lib/fileValidation";
 import { formatSize } from "../lib/utils";
 import {
   AiOutlineFilePdf,
@@ -54,18 +55,26 @@ export const ResumeParserUploader = ({
   const handleParse = async (targetFile: File) => {
     setIsParsing(true);
     setParseError(null);
-    setParsingStep("Reading document...");
+    setParsingStep("Validating file integrity & signatures...");
 
     try {
-      await new Promise((r) => setTimeout(r, 150));
-      setParsingStep("Extracting text and structure...");
+      const validation = await validateFileIntegrity(targetFile);
+      if (!validation.isValid) {
+        setParseError(validation.error || "File failed integrity verification.");
+        setParsedData(null);
+        onParsed?.(null, targetFile);
+        return;
+      }
+
+      setParsingStep("Reading document structure...");
+      await new Promise((r) => setTimeout(r, 100));
       const data = await parseResumeFile(targetFile);
 
       setParsingStep("Analyzing ATS readability & sections...");
-      await new Promise((r) => setTimeout(r, 150));
+      await new Promise((r) => setTimeout(r, 100));
 
       setParsedData(data);
-      setEditedText(data.cleanText);
+      setEditedText(data?.cleanText || "");
       onParsed?.(data, targetFile);
     } catch (err: any) {
       console.error("Resume parsing error:", err);

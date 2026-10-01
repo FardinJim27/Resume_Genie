@@ -189,18 +189,34 @@ function generateFallbackFeedback(jobTitle: string, resumeText: string) {
 
 async function extractPdfText(resumePath: string): Promise<string> {
   try {
+    if (!resumePath || typeof resumePath !== "string") {
+      return "";
+    }
+
     const pdfData = await fs.readFile(resumePath);
+    if (!pdfData || pdfData.length === 0) {
+      return "";
+    }
     const uint8Array = new Uint8Array(pdfData);
 
     const pdfjsLib = await import("pdfjs-dist/legacy/build/pdf.mjs");
     const loadingTask = pdfjsLib.getDocument({ data: uint8Array });
     const pdfDocument = await loadingTask.promise;
 
+    if (!pdfDocument || typeof pdfDocument.numPages !== "number" || pdfDocument.numPages <= 0) {
+      return "";
+    }
+
     let resumeText = "";
     for (let pageNum = 1; pageNum <= pdfDocument.numPages; pageNum++) {
       const page = await pdfDocument.getPage(pageNum);
+      if (!page) continue;
+
       const textContent = await page.getTextContent();
+      if (!textContent || !Array.isArray(textContent.items)) continue;
+
       const pageText = textContent.items
+        .filter((item: any) => item != null && typeof item.str === "string")
         .map((item: any) => item.str)
         .join(" ")
         .replace(/\s+/g, " ")
@@ -218,19 +234,32 @@ async function extractPdfText(resumePath: string): Promise<string> {
 }
 
 async function extractResumeText(filePath: string): Promise<string> {
-  const isDocx = filePath.toLowerCase().endsWith(".docx");
-  if (isDocx) {
-    try {
-      const buffer = await fs.readFile(filePath);
-      const mammoth = await import("mammoth");
-      const result = await mammoth.default.extractRawText({ buffer });
-      return (result.value || "").trim();
-    } catch (err) {
-      console.warn("[AI] DOCX text extraction warning:", err);
+  if (!filePath || typeof filePath !== "string") return "";
+  try {
+    const stat = await fs.stat(filePath).catch(() => null);
+    if (!stat || stat.size === 0) {
+      console.warn(`[AI] Resume file is missing or empty: ${filePath}`);
       return "";
     }
+
+    const isDocx = filePath.toLowerCase().endsWith(".docx");
+    if (isDocx) {
+      try {
+        const buffer = await fs.readFile(filePath);
+        if (!buffer || buffer.length === 0) return "";
+        const mammoth = await import("mammoth");
+        const result = await mammoth.default.extractRawText({ buffer });
+        return (result?.value || "").trim();
+      } catch (err) {
+        console.warn("[AI] DOCX text extraction warning:", err);
+        return "";
+      }
+    }
+    return await extractPdfText(filePath);
+  } catch (err) {
+    console.warn("[AI] extractResumeText failed:", err);
+    return "";
   }
-  return extractPdfText(filePath);
 }
 
 export const analyzeResume = async (

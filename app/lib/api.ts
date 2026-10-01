@@ -155,18 +155,13 @@ export const useApiStore = create<ApiStore>((set, get) => {
         body: JSON.stringify({ email, password }),
       });
 
-      let data;
-      const text = await response.text();
-      try {
-        data = text ? JSON.parse(text) : {};
-      } catch (e) {
-        data = { error: `Server error: ${response.status} ${response.statusText}` };
-      }
-
       if (!response.ok) {
+        const data = await response.json();
         setError(data.error || "Login failed");
         return false;
       }
+
+      const data = await response.json();
       if (typeof window !== "undefined") {
         localStorage.setItem("auth_token", data.token);
       }

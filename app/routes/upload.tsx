@@ -4,6 +4,7 @@ import FileUploader from "~/components/FileUploader";
 import { useApiStore } from "~/lib/api";
 import { useNavigate } from "react-router";
 import { convertPdfToImage, convertPdfToThumbnail } from "~/lib/pdf2img";
+import { validateFileIntegrity } from "~/lib/fileValidation";
 import type { ParsedResumeData } from "~/lib/resumeParser";
 import Swal from "sweetalert2";
 
@@ -42,6 +43,19 @@ const Upload = () => {
   }) => {
     setIsProcessing(true);
 
+    // Validate file integrity before any processing
+    const validation = await validateFileIntegrity(file);
+    if (!validation.isValid) {
+      Swal.fire({
+        title: "Invalid File!",
+        text: validation.error || "The selected file is corrupted or not a valid document.",
+        icon: "error",
+        confirmButtonColor: "#3085d6",
+      });
+      setIsProcessing(false);
+      return;
+    }
+
     const isPdf = file.name.toLowerCase().endsWith(".pdf");
     let imageResult: { file: File | null; error?: string } = { file: null };
     let thumbnailDataUrl = parsedData?.previewUrl || "";
@@ -66,9 +80,10 @@ const Upload = () => {
     );
 
     if (!resumeId) {
+      const storeError = useApiStore.getState().error;
       Swal.fire({
         title: "Upload Failed!",
-        text: "Failed to upload resume. Please try again.",
+        text: storeError || "Failed to upload resume. Please try again.",
         icon: "error",
         confirmButtonColor: "#3085d6",
       });
