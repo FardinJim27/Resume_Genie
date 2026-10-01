@@ -5,7 +5,7 @@ import { convertPdfToImage } from "~/lib/pdf2img";
 import ResumeAnalysisDashboard from "~/components/ResumeAnalysisDashboard";
 import ResumeScoreComparison from "~/components/ResumeScoreComparison";
 import ThemeToggle from "~/components/ThemeToggle";
-import { saveAnalysisToHistory, getAnalysesHistory } from "~/lib/historyStorage";
+import { saveAnalysisToHistory, getAnalysesHistory, getAnalysisById } from "~/lib/historyStorage";
 import {
   FaChartPie,
   FaFileAlt,
@@ -78,7 +78,25 @@ const Resume = () => {
     const loadResume = async () => {
       if (!id) return;
 
-      const resume = await getResume(id);
+      let resume = await getResume(id);
+      if (!resume) {
+        // Fallback to local storage analysis if backend record isn't found
+        const localSaved = getAnalysisById(id);
+        if (localSaved) {
+          resume = {
+            id: localSaved.resumeId || localSaved.id,
+            userId: "",
+            companyName: localSaved.companyName || "",
+            jobTitle: localSaved.jobTitle || "",
+            jobDescription: localSaved.notes || "",
+            imagePath: "",
+            resumePath: "",
+            feedback: localSaved.feedback,
+            createdAt: new Date(localSaved.timestamp).toISOString(),
+            updatedAt: new Date(localSaved.timestamp).toISOString(),
+          };
+        }
+      }
       if (!resume) return;
 
       // Set image URL directly; onError on the <img> handles fallback rendering

@@ -1,5 +1,6 @@
 import { useState, useEffect, useId } from "react";
 import { useTheme } from "~/lib/theme";
+import { useApiStore } from "~/lib/api";
 import {
   type SavedAnalysis,
   getAnalysesHistory,
@@ -38,6 +39,7 @@ export interface ResumeScoreComparisonProps {
   companyName?: string;
   jobTitle?: string;
   onClose?: () => void;
+  onDelete?: (id: string) => void;
   isModal?: boolean;
 }
 
@@ -47,6 +49,7 @@ export const ResumeScoreComparison = ({
   companyName = "Current Target",
   jobTitle = "Role",
   onClose,
+  onDelete,
   isModal = false,
 }: ResumeScoreComparisonProps) => {
   const chartId = useId();
@@ -114,9 +117,25 @@ export const ResumeScoreComparison = ({
     setTimeout(() => setSaveSuccessMsg(null), 3000);
   };
 
-  const handleDeleteVersion = (id: string, e: React.MouseEvent) => {
+  const handleDeleteVersion = async (id: string, e: React.MouseEvent) => {
     e.stopPropagation();
+    const item = history.find((h) => h.id === id);
+    const resumeId = item?.resumeId || id;
+
+    // 1. Trigger database removal
+    try {
+      await useApiStore.getState().deleteResume(resumeId);
+    } catch (err) {
+      console.warn("Could not delete resume from database:", err);
+    }
+
+    // 2. Remove from local storage
     deleteAnalysisFromHistory(id);
+    if (item?.resumeId && item.resumeId !== id) {
+      deleteAnalysisFromHistory(item.resumeId);
+    }
+
+    // 3. Update comparison component state
     const updated = refreshHistory();
     if (selectedAId === id && updated.length > 0) {
       setSelectedAId(updated[0].id);
@@ -124,6 +143,9 @@ export const ResumeScoreComparison = ({
     if (selectedBId === id && updated.length > 0) {
       setSelectedBId(updated[0].id);
     }
+
+    // 4. Update parent UI state if callback provided
+    onDelete?.(resumeId);
   };
 
   const handleSaveLabel = (id: string) => {
