@@ -7,8 +7,9 @@ import {
 } from "./Accordion";
 import ScoreBadge from "./ScoreBadge";
 import ResumeActionSuggestions from "~/components/ResumeActionSuggestions";
+import ResumeFeedbackSection from "~/components/ResumeFeedbackSection";
 import { cn } from "~/lib/utils";
-import { FaTasks, FaListUl } from "react-icons/fa";
+import { FaTasks, FaListUl, FaRegCheckSquare } from "react-icons/fa";
 
 const CategoryHeader = ({
   title,
@@ -90,12 +91,25 @@ const Details = ({
   jobTitle = "Target Role",
   companyName = "Target Company",
 }: DetailsProps) => {
-  const [activeTab, setActiveTab] = useState<"cards" | "accordion">("cards");
+  const [activeTab, setActiveTab] = useState<"actionable" | "cards" | "accordion">("actionable");
 
   return (
     <div className="flex flex-col gap-5 w-full">
       {/* Top View Selector Strip */}
       <div className="flex flex-wrap items-center justify-between gap-3 p-1.5 bg-gray-100 dark:bg-slate-800/90 rounded-2xl border border-gray-200/60 dark:border-slate-700/60">
+        <button
+          type="button"
+          onClick={() => setActiveTab("actionable")}
+          className={`flex-1 sm:flex-initial py-2.5 px-4 rounded-xl text-xs sm:text-sm font-bold flex items-center justify-center gap-2 transition-all cursor-pointer ${
+            activeTab === "actionable"
+              ? "bg-white dark:bg-slate-700 text-amber-700 dark:text-amber-400 shadow-xs"
+              : "text-gray-600 dark:text-slate-400 hover:text-gray-900 dark:hover:text-slate-200"
+          }`}
+        >
+          <FaRegCheckSquare className="w-3.5 h-3.5 text-amber-500" />
+          <span>Actionable Bullet Points</span>
+        </button>
+
         <button
           type="button"
           onClick={() => setActiveTab("cards")}
@@ -107,9 +121,6 @@ const Details = ({
         >
           <FaTasks className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
           <span>Interactive Suggestion Cards</span>
-          <span className="text-[10px] px-2 py-0.5 rounded-full bg-blue-100 dark:bg-blue-950/70 text-blue-800 dark:text-blue-300 font-bold border border-transparent dark:border-blue-800/60">
-            Accept / Dismiss
-          </span>
         </button>
 
         <button
@@ -126,7 +137,15 @@ const Details = ({
         </button>
       </div>
 
-      {activeTab === "cards" ? (
+      {activeTab === "actionable" ? (
+        <ResumeFeedbackSection
+          feedback={feedback}
+          resumeId={resumeId}
+          jobTitle={jobTitle}
+          companyName={companyName}
+          showHeader={false}
+        />
+      ) : activeTab === "cards" ? (
         <ResumeActionSuggestions
           feedback={feedback}
           resumeId={resumeId}
@@ -186,3 +205,4 @@ const Details = ({
 };
 
 export default Details;
+export { ResumeFeedbackSection };
