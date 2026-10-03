@@ -869,3 +869,4 @@ export const ResultsDashboard: React.FC<ResultsDashboardProps> = ({
 };
 
 export default ResultsDashboard;
+export { ResumeFeedbackSection } from "./ResumeFeedbackSection";

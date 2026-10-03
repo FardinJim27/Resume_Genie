@@ -37,6 +37,7 @@ import { Accordion, AccordionContent, AccordionHeader, AccordionItem } from "./A
 import ThemeToggle from "./ThemeToggle";
 import ScoreMeter from "./ScoreMeter";
 import CategorizedFeedbackSection from "./CategorizedFeedbackSection";
+import ResumeFeedbackSection from "./ResumeFeedbackSection";
 import ResultsDashboard from "./ResultsDashboard";
 import { exportResumeAnalysisToPDF } from "~/lib/pdfExport";
 import Swal from "sweetalert2";
@@ -75,8 +76,8 @@ export const ResumeAnalysisDashboard = ({
     "overview" | "results" | "ats" | "feedback" | "growth" | "preview"
   >("overview");
 
-  // Feedback view mode toggle (categorized feedback vs interactive action cards vs pillar breakdown)
-  const [feedbackViewMode, setFeedbackViewMode] = useState<"categorized" | "cards" | "breakdown">("categorized");
+  // Feedback view mode toggle (actionable bullet points vs categorized feedback vs interactive action cards vs pillar breakdown)
+  const [feedbackViewMode, setFeedbackViewMode] = useState<"actionable" | "categorized" | "cards" | "breakdown">("actionable");
 
   // Quick feedback category filter inside breakdown
   const [activeCategoryTab, setActiveCategoryTab] = useState<
@@ -885,6 +886,14 @@ ${allTips
               </div>
             </div>
           </div>
+
+          {/* AI-Generated Resume Feedback & Actionable Improvement Bullet Points Section */}
+          <ResumeFeedbackSection
+            feedback={feedback}
+            jobTitle={jobTitle}
+            companyName={companyName}
+            resumeId={resumeId}
+          />
         </div>
       )}
 
@@ -969,9 +978,22 @@ ${allTips
       {/* TAB 3: FEEDBACK & ACTION PLAN */}
       {activeTab === "feedback" && (
         <div className="flex flex-col gap-5 animate-in fade-in duration-300">
-          {/* Sub-view switcher (Categorized Feedback vs Action Task Engine vs Category Accordion) */}
+          {/* Sub-view switcher (Actionable Bullet Points vs Categorized Feedback vs Action Task Engine vs Category Accordion) */}
           <div className="flex flex-wrap items-center justify-between gap-3 p-1.5 bg-slate-100 dark:bg-slate-800/90 rounded-xl border border-slate-200/60 dark:border-slate-700/60">
-            <div className="flex items-center gap-1">
+            <div className="flex items-center gap-1 flex-wrap">
+              <button
+                type="button"
+                onClick={() => setFeedbackViewMode("actionable")}
+                className={`px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer ${
+                  feedbackViewMode === "actionable"
+                    ? "bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-xs"
+                    : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200"
+                }`}
+              >
+                <FaTasks className="w-3 h-3 text-amber-500" />
+                <span>Actionable Improvements</span>
+              </button>
+
               <button
                 type="button"
                 onClick={() => setFeedbackViewMode("categorized")}
@@ -1017,7 +1039,15 @@ ${allTips
             </span>
           </div>
 
-          {feedbackViewMode === "categorized" ? (
+          {feedbackViewMode === "actionable" ? (
+            <ResumeFeedbackSection
+              feedback={feedback}
+              jobTitle={jobTitle}
+              companyName={companyName}
+              resumeId={resumeId}
+              showHeader={false}
+            />
+          ) : feedbackViewMode === "categorized" ? (
             <CategorizedFeedbackSection
               feedback={feedback}
               jobTitle={jobTitle}
