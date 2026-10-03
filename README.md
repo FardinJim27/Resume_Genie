@@ -96,7 +96,7 @@ cp .env.example .env
 
 # Edit .env and set:
 
-VITE_API_URL=http://localhost:3001
+VITE_API_URL=http://localhost:5173
 \`\`\`
 
 **Backend (server/.env):**
@@ -151,8 +151,20 @@ Or use the start script:
 #### 5. Access the Application
 
 - **Frontend**: http://localhost:5173
-- **Backend API**: http://localhost:3001
-- **API Health**: http://localhost:3001/health
+- **Backend API**: http://localhost:5173
+- **API Health**: http://localhost:5173/health
+
+### 🔑 Default Credentials
+
+If you are using the default seeded database (e.g. `server/data-store.json`), you can log in with:
+
+**Admin Account:**
+- Email: `fardinjim77@gmail.com` (or `fardinahmed.jim.7@gmail.com`)
+- Password: `Password123!`
+
+**Demo User Account:**
+- Email: `demo@resumegenie.com`
+- Password: `Password123!`
 
 ## 📖 Documentation
 
@@ -365,7 +377,7 @@ The system evaluates resumes across 5 key dimensions:
 
 ### Frontend Can't Connect to Backend
 
-- Ensure backend is running on port 3001
+- Ensure backend is running on port 5173
 - Check VITE_API_URL in .env
 - Verify CORS settings
 
@@ -374,13 +386,13 @@ The system evaluates resumes across 5 key dimensions:
 ### Frontend
 
 \`\`\`env
-VITE_API_URL=http://localhost:3001
+VITE_API_URL=http://localhost:5173
 \`\`\`
 
 ### Backend
 
 \`\`\`env
-PORT=3001
+PORT=5173
 NODE_ENV=development
 DATABASE_URL=postgresql://user:password@localhost:5432/ai_resume_analyzer
 JWT_SECRET=your-super-secret-key
@@ -427,8 +439,8 @@ npm run dev
 ### 🌐 Access Points
 
 App: http://localhost:5173
-API: http://localhost:3000
-Health Check: http://localhost:3000/health
+API: http://localhost:5173
+Health Check: http://localhost:5173/health
 
 ### 👨‍💼 Admin Commands
 
