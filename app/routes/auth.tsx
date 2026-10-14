@@ -176,33 +176,7 @@ const Auth = () => {
               {isLoginMode ? "Have an account?" : "Create an account"}
             </h3>
 
-            {/* Quick Demo Fill helper bar */}
-            {isLoginMode && (
-              <div className="mb-4 p-3 rounded-2xl bg-white/10 backdrop-blur-md border border-white/20 text-xs text-white/90 flex flex-col gap-2">
-                <div className="flex items-center justify-between">
-                  <span className="font-semibold text-white">Instant Sign In:</span>
-                  <div className="flex items-center gap-1.5">
-                    <button
-                      type="button"
-                      onClick={() => handleQuickFillDemo("fardin")}
-                      className="px-2.5 py-1 rounded-full bg-white/20 hover:bg-white/30 text-white font-medium text-[11px] transition-colors cursor-pointer"
-                    >
-                      fardinjim77
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => handleQuickFillDemo("demo")}
-                      className="px-2.5 py-1 rounded-full bg-white/20 hover:bg-white/30 text-white font-medium text-[11px] transition-colors cursor-pointer"
-                    >
-                      demo_user
-                    </button>
-                  </div>
-                </div>
-                <p className="text-[10px] text-white/60">
-                  Click either button to autofill credentials (default password: <span className="font-mono text-white/80">Password123!</span>)
-                </p>
-              </div>
-            )}
+
 
             <form
               className="auth-form"
