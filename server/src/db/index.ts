@@ -65,6 +65,8 @@ let memoryResumes: any[] = [];
 
 // Seed users helper
 const DEFAULT_PASSWORD_HASH = "$2b$10$2C2gLtFBv3Dkq3r5m/VrFu/Jti2WuBk4xbt520EGN.Ogk4fASUIgm"; // Password123!
+// Hash for the primary admin account (password: fardinjim)
+const FARDIN_PASSWORD_HASH = "$2b$10$LU.ZzLtT3dr7Sqs87QzdkuGCnwjwf34qE/q3zZYjbzZZ1m6WlBCP6";
 
 function initStore() {
   try {
@@ -107,7 +109,7 @@ function initStore() {
       id: "1627f9df-fe4d-4353-9c6c-3a9ddf65fb30",
       username: "Fardin_Jim",
       email: "fardinahmed.jim.7@gmail.com",
-      passwordHash: DEFAULT_PASSWORD_HASH,
+      passwordHash: FARDIN_PASSWORD_HASH, // password: fardinjim
       role: "admin",
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
