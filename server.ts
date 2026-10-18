@@ -53,29 +53,23 @@ app.get("/health", (req, res) => {
 
 // Full-stack React Router + Vite integration
 const isProduction = process.env.NODE_ENV === "production";
-const { createRequestListener } = await import("@react-router/node");
 
 if (isProduction) {
+  // SPA mode (ssr: false) — serve static client build, fall back to index.html
   const clientBuildPath = path.resolve(__dirname, "build/client");
   app.use(express.static(clientBuildPath));
-  app.use(async (req, res, next) => {
-    try {
-      const serverBuildPath = path.resolve(__dirname, "build/server/index.js");
-      if (fs.existsSync(serverBuildPath)) {
-        const build = await import(serverBuildPath);
-        return (createRequestListener({ build: build as any }) as any)(req, res, next);
-      }
-      const indexPath = path.join(clientBuildPath, "index.html");
-      if (fs.existsSync(indexPath)) {
-        return res.sendFile(indexPath);
-      }
-      next();
-    } catch (error) {
-      next(error);
+
+  // All non-API routes serve index.html (client-side routing)
+  app.get(/^(?!\/api).*/, (req, res) => {
+    const indexPath = path.join(clientBuildPath, "index.html");
+    if (fs.existsSync(indexPath)) {
+      res.sendFile(indexPath);
+    } else {
+      res.status(503).json({ error: "App not built. Run npm run build first." });
     }
   });
 } else {
-  // In development, mount Vite dev middleware + React Router SSR/SPA handler
+  // In development, mount Vite dev middleware
   const { createServer } = await import("vite");
   const vite = await createServer({
     server: {
@@ -86,17 +80,6 @@ if (isProduction) {
     },
   });
   app.use(vite.middlewares);
-  app.use(async (req, res, next) => {
-    try {
-      const build = await vite.ssrLoadModule("virtual:react-router/server-build");
-      return (createRequestListener({ build: build as any }) as any)(req, res, next);
-    } catch (error: any) {
-      if (typeof error === "object" && error !== null) {
-        vite.ssrFixStacktrace(error);
-      }
-      next(error);
-    }
-  });
 }
 
 // Global error handling
