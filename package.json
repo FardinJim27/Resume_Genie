@@ -27,6 +27,7 @@
     "mammoth": "^1.13.0",
     "pdf-parse": "^2.4.5",
     "pdfjs-dist": "5.4.530",
+    "postgres": "^3.4.9",
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
     "react-dropzone": "^14.3.8",
